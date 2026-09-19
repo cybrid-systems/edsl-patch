@@ -250,3 +250,63 @@ def emit_driver(source_path: Path, patch: list[dict[str, Any]]) -> str:
         "(newline)",
     ]
     return "\n".join(lines) + "\n"
+
+
+def render_define(name: str, params: str, inner: str, sugar: bool) -> str:
+    if sugar:
+        return f"(define ({name} {params}) {inner})"
+    return f"(define {name} (lambda ({params}) {inner}))"
+
+
+def render_source(lesson: dict[str, Any]) -> str:
+    helpers = str(lesson.get("helpers") or "").strip()
+    defn = render_define(
+        str(lesson["name"]),
+        str(lesson["params"]),
+        str(lesson["inner0"]),
+        bool(lesson.get("sugar")),
+    )
+    if helpers:
+        return helpers + "\n" + defn
+    return defn
+
+
+def lesson_body(lesson: dict[str, Any]) -> str:
+    return f"(lambda ({lesson['params']}) {lesson['inner1']})"
+
+
+def lesson_to_sample(lesson: dict[str, Any]) -> dict[str, Any]:
+    name = lesson["name"]
+    body = lesson_body(lesson)
+    target = [
+        {"kind": "query", "op": "find", "name": name},
+        {"kind": "query", "op": "def-use", "name": name},
+        {
+            "kind": "synthesis",
+            "op": "rebind",
+            "name": name,
+            "body": body,
+            "summary": lesson["summary"],
+        },
+    ]
+    validate_patch(target)
+    return {
+        "id": lesson["id"],
+        "input": {"source": render_source(lesson)},
+        "target": target,
+        "verify": {"apply_ok": True},
+    }
+
+
+def aura_hash(obj: dict[str, Any]) -> str:
+    parts = []
+    for k, v in obj.items():
+        if isinstance(v, bool):
+            lit = "#t" if v else "#f"
+        elif isinstance(v, (int, float)) and not isinstance(v, bool):
+            lit = str(v)
+        else:
+            lit = scheme_string(str(v))
+        parts.append(f"{scheme_string(str(k))} {lit}")
+    return "(hash " + " ".join(parts) + ")"
+

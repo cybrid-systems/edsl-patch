@@ -1,0 +1,8 @@
+{"id":"abs","name":"f","params":"x","summary":"abs","inner0":"x","inner1":"(if (< x 0) (* x -1) x)","helpers":"","sugar":false}
+{"id":"double","name":"g","params":"x","summary":"double","inner0":"(+ x 1)","inner1":"(* x 2)","helpers":"","sugar":false}
+{"id":"negate","name":"f","params":"x","summary":"negate","inner0":"x","inner1":"(* x -1)","helpers":"","sugar":false}
+{"id":"add","name":"add","params":"a b","summary":"sum","inner0":"a","inner1":"(+ a b)","helpers":"","sugar":false}
+{"id":"identity-from-zero","name":"f","params":"x","summary":"identity","inner0":"0","inner1":"x","helpers":"","sugar":false}
+{"id":"helper-abs","name":"f","params":"x","summary":"abs","inner0":"(pad x)","inner1":"(if (< x 0) (* x -1) x)","helpers":"(define pad (lambda (x) x))","sugar":false}
+{"id":"sugar-abs","name":"f","params":"x","summary":"abs","inner0":"x","inner1":"(if (< x 0) (* x -1) x)","helpers":"","sugar":true}
+{"id":"fix-abs-branch","name":"f","params":"x","summary":"abs","inner0":"(if (< x 0) x (* x -1))","inner1":"(if (< x 0) (* x -1) x)","helpers":"","sugar":false}

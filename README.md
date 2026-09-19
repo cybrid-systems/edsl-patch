@@ -38,9 +38,11 @@ edsl-patch/
 ├── schema/patch.md     # legal query + synthesis ops
 ├── schema/sample.md    # SFT jsonl record
 ├── schema/apply.md     # host apply I/O
+├── lessons/            # teacher seeds (source_0 + source_1 intent)
+├── lib/teacher.aura    # namer / binder / helper agents (no mutate)
 ├── examples/           # apply-verified goldens
-├── scripts/            # apply / ingest / export_sft
-└── tests/              # legal + apply
+├── scripts/            # apply / ingest / teach / export_sft
+└── tests/              # legal + apply + teacher fanout
 ```
 
 ## Apply (host)
@@ -56,8 +58,9 @@ python3 scripts/apply.py --sample examples/identity-to-abs.jsonl
 
 python3 -m unittest discover -s tests -v
 
-python3 scripts/ingest.py                  # data/raw/verified.jsonl (gitignored)
-python3 scripts/export_sft.py data/raw/verified.jsonl
+python3 scripts/ingest.py                  # cartesian catalog → data/raw/verified.jsonl
+python3 scripts/teach.py                   # teacher lessons + multi-agent variants
+python3 scripts/export_sft.py data/raw/verified.jsonl data/raw/teacher.jsonl
 ```
 
 A `rebind` patch is:

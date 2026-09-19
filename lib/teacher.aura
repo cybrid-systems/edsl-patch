@@ -1,0 +1,130 @@
+; lib/teacher.aura — lesson fanout via std/orchestrator agents.
+;
+; Workers propose only (rewrite lesson hashes). They never set-code,
+; mutate:rebind, or eval-current. Apply stays in scripts/apply.py.
+;
+; fiber:spawn / orch:parallel mis-capture closures on the CLI host
+; (Aether 12). Fanout is agent:ask + mutate:safe-yield.
+
+(export teacher:install! teacher:run teacher:fanout
+        teacher:fanout-mode teacher:namer teacher:binder teacher:helper)
+
+(require "std/orchestrator" all:)
+(require "std/mutate" all:)
+(require "std/string" all:)
+
+(define *teacher-mode* "agent-ask-yield")
+(define *teacher-names* (list "g" "h" "k"))
+
+(define (teacher:fanout-mode) *teacher-mode*)
+
+(define (teacher-ref les key)
+  (hash-ref les key))
+
+(define (teacher-copy les id name params summary inner0 inner1 helpers sugar)
+  (hash "id" id
+        "name" name
+        "params" params
+        "summary" summary
+        "inner0" inner0
+        "inner1" inner1
+        "helpers" helpers
+        "sugar" sugar))
+
+(define (teacher-from les id name helpers sugar)
+  (teacher-copy les
+                id
+                name
+                (teacher-ref les "params")
+                (teacher-ref les "summary")
+                (teacher-ref les "inner0")
+                (teacher-ref les "inner1")
+                helpers
+                sugar))
+
+(define (teacher-keep xs)
+  (if (null? xs) (quote ())
+    (if (car xs)
+      (cons (car xs) (teacher-keep (cdr xs)))
+      (teacher-keep (cdr xs)))))
+
+(define (teacher:namer les)
+  (define cur (teacher-ref les "name"))
+  (define base (teacher-ref les "id"))
+  (define (one names)
+    (if (null? names) (quote ())
+      (let ((n (car names)))
+        (if (string=? n cur)
+          (one (cdr names))
+          (cons (teacher-from les
+                              (string-append base ".namer." n)
+                              n
+                              (teacher-ref les "helpers")
+                              (teacher-ref les "sugar"))
+                (one (cdr names)))))))
+  (one *teacher-names*))
+
+(define (teacher:binder les)
+  (define sugar (teacher-ref les "sugar"))
+  (define flipped (if sugar #f #t))
+  (define tag (if flipped "sugar" "lambda"))
+  (list (teacher-from les
+                      (string-append (teacher-ref les "id") ".binder." tag)
+                      (teacher-ref les "name")
+                      (teacher-ref les "helpers")
+                      flipped)))
+
+(define (teacher:helper les)
+  (define helpers (teacher-ref les "helpers"))
+  (if (and (string? helpers) (> (string-length helpers) 0))
+    (quote ())
+    (list (teacher-from les
+                        (string-append (teacher-ref les "id") ".helper.unused")
+                        (teacher-ref les "name")
+                        "(define unused (lambda () 0))"
+                        (teacher-ref les "sugar")))))
+
+(define (teacher:install!)
+  (agent:spawn "namer" teacher:namer)
+  (agent:spawn "binder" teacher:binder)
+  (agent:spawn "helper" teacher:helper)
+  (agent:list))
+
+(define (teacher-yield)
+  (try (mutate:safe-yield) (catch (e) #f)))
+
+(define (teacher:fanout les)
+  (teacher-yield)
+  (define a (try (agent:ask "namer" les) (catch (e) (quote ()))))
+  (teacher-yield)
+  (define b (try (agent:ask "binder" les) (catch (e) (quote ()))))
+  (teacher-yield)
+  (define c (try (agent:ask "helper" les) (catch (e) (quote ()))))
+  (teacher-yield)
+  (set! *teacher-mode* "agent-ask-yield")
+  (define (as-lessons v)
+    (if (null? v) (quote ())
+      (if (and (pair? v) (hash? (car v))) v (quote ()))))
+  (cons les (append (as-lessons a)
+                    (append (as-lessons b) (as-lessons c)))))
+
+(define (teacher-emit les)
+  (display "TEACHER_LESSON ")
+  (display (json-encode les))
+  (newline)
+  les)
+
+(define (teacher-each fn xs)
+  (if (null? xs) #t
+    (begin (fn (car xs)) (teacher-each fn (cdr xs)))))
+
+(define (teacher:run seeds)
+  (display "TEACHER_MODE ")
+  (display *teacher-mode*)
+  (newline)
+  (teacher:install!)
+  (teacher-each
+    (lambda (les)
+      (teacher-each teacher-emit (teacher:fanout les)))
+    seeds)
+  *teacher-mode*)
