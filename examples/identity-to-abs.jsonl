@@ -1,0 +1,1 @@
+{"id":"identity-to-abs","input":{"source":"(define f (lambda (x) x))"},"target":[{"kind":"query","op":"find","name":"f"},{"kind":"query","op":"def-use","name":"f"},{"kind":"synthesis","op":"rebind","name":"f","body":"(lambda (x) (if (< x 0) (* x -1) x))","summary":"abs"}],"verify":{"apply_ok":true,"expected_source":"(define f (lambda (x) (if (< x 0) (* x -1) x)))"}}

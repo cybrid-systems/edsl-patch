@@ -32,10 +32,15 @@ One jsonl line = one closed-loop round (Strand) or one Unify cycle.
 }
 ```
 
-`label` is the **control patch** to train toward, not the host's raw `decision`. Strand's host often says `commit` on a worse body; the label is still `restore`.
+This file is the **legacy Strand/Unify control-trace** shape. v1 training targets are query→synthesis sequences (`schema/patch.md`, `schema/sample.md`), not `skip` / `persist` / `restore`.
 
-Ingest from:
+`label` on these traces is a control-policy decision, not the host's raw `decision`. Strand's host often says `commit` on a worse body; the label is still `restore`. Poison-commit rounds are **not** positive synthesis labels.
 
-- Strand stdout (`R3 … fitness 3→0`, `rollback fitness now=3`)
-- `.strand/session.aura-soul` only as persist target, not as the patch language
-- Unify `logs/runs/latest/events.jsonl` when the event is an EDSL op
+Ingest (`scripts/ingest.py`):
+
+- A round that rebound a name to a **better** body may become a query + `rebind` sequence.
+- Fitness-drop / poison rounds are dropped for v1.
+- `.strand/session.aura-soul` is a persist target only, not the patch language.
+- Unify `logs/runs/latest/events.jsonl` when the event is an EDSL op.
+
+Committed examples live under `examples/legacy-control/`.

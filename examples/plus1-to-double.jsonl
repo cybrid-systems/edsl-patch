@@ -1,0 +1,1 @@
+{"id":"plus1-to-double","input":{"source":"(define (g x) (+ x 1))"},"target":[{"kind":"query","op":"find","name":"g"},{"kind":"synthesis","op":"rebind","name":"g","body":"(lambda (x) (* x 2))","summary":"double"}],"verify":{"apply_ok":true,"expected_source":"(define g (lambda (x) (* x 2)))"}}
