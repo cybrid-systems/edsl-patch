@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import subprocess
 import sys
 import tempfile
@@ -45,12 +46,25 @@ def parse_result(stdout: str) -> dict:
     raise PatchError("apply driver printed no EDSL_PATCH_RESULT line")
 
 
-def apply_patch(source: str, patch: list[dict], *, timeout: int = 30) -> dict:
+def apply_patch(
+    source: str,
+    patch: list[dict],
+    *,
+    timeout: int = 30,
+    extra_path: str | Path | None = None,
+) -> dict:
     validate_patch(patch)
     bin_path = pick_bin()
     lib = pick_lib()
     env = os.environ.copy()
-    env["AURA_PATH"] = env.get("AURA_PATH") or str(lib)
+    paths = [str(lib)]
+    if extra_path:
+        paths.insert(0, str(extra_path))
+    existing = [p for p in env.get("AURA_PATH", "").split(":") if p]
+    for p in existing:
+        if p not in paths:
+            paths.append(p)
+    env["AURA_PATH"] = ":".join(paths)
     env["AURA_SANDBOX"] = env.get("AURA_SANDBOX") or "off"
     env["AURA_PIPELINE_STRICT"] = env.get("AURA_PIPELINE_STRICT") or "0"
     with tempfile.TemporaryDirectory(prefix="edsl-patch-") as tmp:
@@ -59,15 +73,25 @@ def apply_patch(source: str, patch: list[dict], *, timeout: int = 30) -> dict:
         drv_file = tmp_path / "driver.aura"
         src_file.write_text(source.strip() + "\n", encoding="utf-8")
         drv_file.write_text(emit_driver(src_file, patch), encoding="utf-8")
-        proc = subprocess.run(
+        proc = subprocess.Popen(
             [str(bin_path), str(drv_file)],
             cwd=tmp_path,
             env=env,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=timeout,
+            start_new_session=True,
         )
-        out = (proc.stdout or "") + (("\n" + proc.stderr) if proc.stderr else "")
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired as e:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except OSError:
+                proc.kill()
+            proc.wait()
+            raise PatchError(f"aura timeout after {timeout}s") from e
+        out = (stdout or "") + (("\n" + stderr) if stderr else "")
         if proc.returncode != 0:
             raise PatchError(f"aura exit {proc.returncode}: {out[-2000:]}")
         result = parse_result(out)

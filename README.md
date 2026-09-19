@@ -38,10 +38,11 @@ edsl-patch/
 ├── schema/patch.md     # legal query + synthesis ops
 ├── schema/sample.md    # SFT jsonl record
 ├── schema/apply.md     # host apply I/O
+├── schema/collect.md   # git harvest from Unify KV / spans
 ├── lessons/            # teacher seeds (source_0 + source_1 intent)
 ├── lib/teacher.aura    # namer / binder / helper agents (no mutate)
 ├── examples/           # apply-verified goldens
-├── scripts/            # apply / ingest / teach / export_sft
+├── scripts/            # apply / ingest / teach / collect / export_sft
 └── tests/              # legal + apply + teacher fanout
 ```
 
@@ -60,7 +61,8 @@ python3 -m unittest discover -s tests -v
 
 python3 scripts/ingest.py                  # cartesian catalog → data/raw/verified.jsonl
 python3 scripts/teach.py                   # teacher lessons + multi-agent variants
-python3 scripts/export_sft.py data/raw/verified.jsonl data/raw/teacher.jsonl
+python3 scripts/collect.py                 # real Unify KV / span git rebinds (incremental)
+python3 scripts/export_sft.py data/raw/business.jsonl data/raw/teacher.jsonl data/raw/verified.jsonl
 ```
 
 A `rebind` patch is:
