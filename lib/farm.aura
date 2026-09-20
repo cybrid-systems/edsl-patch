@@ -1,0 +1,100 @@
+; lib/farm.aura — in-process star-mode farm (issue #3)
+;
+; One Aura process, many rewrites against the same planted source_0.
+; After each step, restore the plant snapshot so the next rewrite
+; sees the same source. Teacher workers stay mutate-free (see lib/teacher.aura).
+;
+; Host: (query :find) (query :def-use) (ast:snapshot) (mutate:rebind)
+;       (eval-current) (current-source :workspace) — same as scripts/apply.py.
+
+(export farm:plant! farm:step farm:run)
+
+(define *farm-src* "")
+(define *plant-snap* -1)
+(define *farm-n* 0)
+
+(define (farm-empty? v)
+  (or (null? v) (eq? v #f)))
+
+(define (farm-target name body summary)
+  (list (hash "kind" "query" "op" "find" "name" name)
+        (hash "kind" "query" "op" "def-use" "name" name)
+        (hash "kind" "synthesis" "op" "rebind"
+              "name" name "body" body "summary" summary)))
+
+(define (farm-emit tag obj)
+  (display tag)
+  (display " ")
+  (display (json-encode obj))
+  (newline)
+  tag)
+
+(define (farm-restore-plant)
+  (if (and (number? *plant-snap*) (>= *plant-snap* 0))
+    (try (ast:restore *plant-snap*) (catch (e) #f))
+    (if (string? *farm-src*)
+      (begin (set-code *farm-src*) (try (eval-current) (catch (e) #f)))
+      #f)))
+
+(define (farm:plant! src)
+  (set! *farm-src* src)
+  (set-code src)
+  (try (eval-current) (catch (e) #f))
+  (set! *plant-snap* (try (ast:snapshot "farm-plant") (catch (e) -1)))
+  (if (and (number? *plant-snap*) (>= *plant-snap* 0))
+    #t
+    #f))
+
+(define (farm-observe reason name summary found)
+  (farm-restore-plant)
+  (farm-emit "EDSL_OBSERVE"
+             (hash "reason" reason
+                   "name" name
+                   "summary" summary
+                   "find-empty" (farm-empty? found)))
+  #f)
+
+(define (farm:step rw)
+  (let* ((name (hash-ref rw "name"))
+         (body (hash-ref rw "body"))
+         (summary (hash-ref rw "summary"))
+         (src0 (try (current-source :workspace) (catch (e) *farm-src*)))
+         (found (try (query :find name) (catch (e) #f)))
+         (du (try (query :def-use name) (catch (e) #f))))
+    (if (farm-empty? found)
+      (farm-observe "find-empty" name summary found)
+      (let ((snap (try (ast:snapshot "farm") (catch (e) -1))))
+        (if (not (and (number? snap) (>= snap 0)))
+          (farm-observe "snapshot-fail" name summary found)
+          (let ((rb (try (mutate:rebind name body summary) (catch (e) #f))))
+            (if (not rb)
+              (begin
+                (try (ast:restore snap) (catch (e) #f))
+                (farm-observe "rebind-fail" name summary found))
+              (let ((ev (try (begin (eval-current) #t) (catch (e) #f))))
+                (if (not ev)
+                  (begin
+                    (try (ast:restore snap) (catch (e) #f))
+                    (farm-observe "eval-fail" name summary found))
+                  (begin
+                    (set! *farm-n* (+ *farm-n* 1))
+                    (farm-emit "EDSL_SAMPLE"
+                               (hash "id" (string-append "farm-" name "-" summary)
+                                     "input" (hash "source" src0)
+                                     "target" (farm-target name body summary)
+                                     "verify" (hash "apply_ok" #t
+                                                    "expected_source"
+                                                    (try (current-source :workspace)
+                                                         (catch (e) "")))))
+                    (farm-restore-plant)
+                    #t))))))))))
+
+(define (farm-each fn xs)
+  (if (null? xs) #t
+    (begin (fn (car xs)) (farm-each fn (cdr xs)))))
+
+(define (farm:run src rws)
+  (set! *farm-n* 0)
+  (farm:plant! src)
+  (farm-each farm:step rws)
+  *farm-n*)

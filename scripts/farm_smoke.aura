@@ -1,0 +1,14 @@
+;; smoke driver for lib/farm.aura (issue #3)
+;; Expect ≥1 EDSL_SAMPLE and ≥1 EDSL_OBSERVE.
+(require "farm" all:)
+(define *n*
+  (farm:run
+    "(define f (lambda (x) x))"
+    (list
+      (hash "name" "f" "body" "(lambda (x) (+ x 1))" "summary" "plus1")
+      (hash "name" "f" "body" "(lambda (x) (* x 2))" "summary" "double")
+      (hash "name" "f" "body" "(lambda (x) (if (< x 0) (* x -1) x))" "summary" "abs")
+      (hash "name" "missing" "body" "(lambda (x) x)" "summary" "no-find"))))
+(display "FARM_SMOKE n=")
+(display *n*)
+(newline)

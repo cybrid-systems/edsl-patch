@@ -2,6 +2,7 @@
 ;
 ; Workers propose only (rewrite lesson hashes). They never set-code,
 ; mutate:rebind, or eval-current. Apply stays in scripts/apply.py.
+; In-process mutate farm is lib/farm.aura (star-mode), not this module.
 ;
 ; fiber:spawn / orch:parallel mis-capture closures on the CLI host
 ; (Aether 12). Fanout is agent:ask + mutate:safe-yield.
