@@ -130,6 +130,41 @@ class ExportTests(unittest.TestCase):
         }
         self.assertEqual(drop_reason(sample), "quote-only-session")
 
+    def test_rollout_hops_only_good_exported(self):
+        import tempfile
+        from export_sft import drop_reason, main as export_main
+
+        rows = [
+            json.loads(l)
+            for l in (ROOT / "tests" / "fixtures" / "export" / "rollout-twin.jsonl")
+            .read_text()
+            .splitlines()
+            if l.strip()
+        ]
+        kinds = {r["id"]: drop_reason(r) for r in rows}
+        self.assertIsNone(kinds["good-hop"])
+        self.assertEqual(kinds["traj-only"], "traj")
+        self.assertEqual(kinds["kill-hop"], "hop-sft-false")
+        out = Path(tempfile.mkdtemp()) / "sft.jsonl"
+        rc = export_main(
+            [
+                "--profile",
+                "commercial",
+                "--allow-partial",
+                "--out",
+                str(out),
+                str(ROOT / "tests" / "fixtures" / "export" / "rollout-twin.jsonl"),
+                str(ROOT / "tests" / "fixtures" / "export" / "refuse.jsonl"),
+            ]
+        )
+        self.assertEqual(rc, 0)
+        text = out.read_text()
+        self.assertIn("damp-v", text)
+        self.assertIn("energy 9.0 at t=40", text)
+        self.assertNotIn("kill-alive", text)
+        self.assertNotIn("traj-only", text)
+        self.assertEqual(len([l for l in text.splitlines() if l.strip()]), 2)
+
     def test_demo_observe_12_4_dropped(self):
         from export_sft import drop_reason
 

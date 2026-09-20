@@ -41,7 +41,10 @@ One JSONL line is either a **hop** (SFT slice) or a **traj** (full tree).
 ```
 
 `input.observe` is **measured**. `advantage` = r − mean(r of siblings at this fork).
-Export SFT positives only if `advantage > 0` (or refuse-correct with r>0).
+`export_sft.py --profile commercial` ingests `data/raw/rollout-*.jsonl` hops only
+(`kind=hop`, `sft=true`, `advantage>0`). Drop `kind=traj`, identity-cut / t_break,
+and kill-alive hops. Twin/session hops count toward the 40/20 vertical buckets,
+not dialect. Prompt includes measured `input.observe` + `intent`.
 
 ## Traj (debug / GRPO group)
 

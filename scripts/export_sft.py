@@ -75,6 +75,19 @@ def dynamics_key(sample: dict) -> tuple[str, str]:
 
 
 def drop_reason(sample: dict) -> str | None:
+    if sample.get("kind") == "traj":
+        return "traj"
+    if sample.get("kind") == "hop":
+        rw = sample.get("reward") or {}
+        if sample.get("sft") is not True:
+            return "hop-sft-false"
+        try:
+            if float(rw.get("advantage", 0)) <= 0:
+                return "hop-advantage"
+        except (TypeError, ValueError):
+            return "hop-advantage"
+        if rw.get("cut") in ("identity", "t_break"):
+            return "hop-cut"
     if sample.get("sft") is False:
         return "sft-false"
     src = (sample.get("input") or {}).get("source") or ""
@@ -131,9 +144,9 @@ def bucket_of(path: Path, sample: dict) -> str:
     last = tgt[-1] if tgt else {}
     if last.get("kind") == "refuse" or "refuse" in n:
         return "refuse"
-    if "twin" in n:
+    if "twin" in n or (sample.get("kind") == "hop" and "twin" in n):
         return "twin"
-    if "session" in n:
+    if "session" in n or (sample.get("kind") == "hop" and "session" in n):
         return "session"
     if "teacher" in n or "business" in n:
         return "teacher"
