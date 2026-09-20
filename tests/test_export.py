@@ -46,6 +46,7 @@ class ExportTests(unittest.TestCase):
             [
                 "--profile",
                 "commercial",
+                "--allow-partial",
                 "--out",
                 str(out),
                 str(ROOT / "tests" / "fixtures" / "export" / "twin.jsonl"),
@@ -84,6 +85,80 @@ class ExportTests(unittest.TestCase):
         self.assertIsInstance(target, list)
         self.assertEqual(target[-1]["op"], "rebind")
         self.assertEqual(target[-1]["summary"], "plus1")
+
+    def test_commercial_empty_verticals_exit_2(self):
+        import tempfile
+        from export_sft import main as export_main
+
+        out = Path(tempfile.mkdtemp()) / "sft.jsonl"
+        rc = export_main(
+            [
+                "--profile",
+                "commercial",
+                "--out",
+                str(out),
+                str(ROOT / "tests" / "fixtures" / "export" / "refuse.jsonl"),
+            ]
+        )
+        self.assertEqual(rc, 2)
+
+    def test_quote_only_session_dropped(self):
+        from export_sft import drop_reason
+
+        sample = {
+            "id": "old-quote",
+            "input": {
+                "source": '(define *session* (hash "id" 1 "fd" 7 "alive" #t))\n(define quote (lambda (book) 0))',
+                "observe": {
+                    "session": {"id": 1, "fd": 7, "alive": True},
+                    "hot": ["quote"],
+                    "frozen": ["*session*"],
+                },
+            },
+            "target": [
+                {"kind": "query", "op": "find", "name": "quote"},
+                {
+                    "kind": "synthesis",
+                    "op": "rebind",
+                    "name": "quote",
+                    "body": "(lambda (book) 1)",
+                    "summary": "narrow",
+                },
+            ],
+            "verify": {"apply_ok": True, "probes": {"session_stable": True}},
+            "sft": True,
+        }
+        self.assertEqual(drop_reason(sample), "quote-only-session")
+
+    def test_demo_observe_12_4_dropped(self):
+        from export_sft import drop_reason
+
+        sample = {
+            "id": "demo",
+            "input": {
+                "source": "(define step (lambda (w u) w))\n(define control (lambda (w) 0))",
+                "observe": {
+                    "t": 40,
+                    "energy": 12.4,
+                    "hot": ["control"],
+                    "frozen": ["step"],
+                },
+            },
+            "target": [
+                {"kind": "query", "op": "find", "name": "control"},
+                {"kind": "query", "op": "def-use", "name": "control"},
+                {
+                    "kind": "synthesis",
+                    "op": "rebind",
+                    "name": "control",
+                    "body": "(lambda (w) 0)",
+                    "summary": "zero-u",
+                },
+            ],
+            "verify": {"apply_ok": True, "probes": {"t_mono": True}},
+            "sft": True,
+        }
+        self.assertEqual(drop_reason(sample), "demo-observe")
 
 
 if __name__ == "__main__":

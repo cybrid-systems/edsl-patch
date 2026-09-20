@@ -11,7 +11,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from collections import defaultdict
+
 from edsl_patch import SYSTEM_CONTRACT, PatchError, validate_patch
+from parse_aura import extract_defines
 
 
 DEFAULT_SRC = (
@@ -53,6 +56,22 @@ def to_sft(sample: dict) -> dict:
 
 
 MAX_SOURCE_CHARS = 1500
+MIN_TWIN_COMMERCIAL = 50
+MIN_SESSION_COMMERCIAL = 30
+CAP_PER_DYNAMICS_SUMMARY = 200
+
+
+def _norm_src(s: str) -> str:
+    return " ".join((s or "").split())
+
+
+def dynamics_key(sample: dict) -> tuple[str, str]:
+    src = (sample.get("input") or {}).get("source") or ""
+    defs = extract_defines(src)
+    dyn = _norm_src(defs.get("step") or defs.get("tick") or src[:120])
+    last = (sample.get("target") or [{}])[-1]
+    summary = str(last.get("summary") or last.get("why") or last.get("op") or "")
+    return (dyn, summary)
 
 
 def drop_reason(sample: dict) -> str | None:
@@ -84,6 +103,25 @@ def drop_reason(sample: dict) -> str | None:
         validate_patch(target, observe=observe if isinstance(observe, dict) else None)
     except PatchError:
         return "schema"
+    has_step = "define step" in src or "(define (step" in src
+    has_tick = "define tick" in src or "(define (tick" in src
+    if (
+        observe.get("energy") == 12.4
+        and observe.get("t") == 40
+        and not str(sample.get("id") or "").startswith(("farm-", "world-", "path-"))
+    ):
+        return "demo-observe"
+    if last.get("kind") == "synthesis" and has_step:
+        if observe.get("t") is None and observe.get("energy") is None:
+            return "missing-observe"
+    if last.get("kind") == "synthesis" and has_tick:
+        if not observe.get("session"):
+            return "missing-observe"
+    if last.get("kind") == "synthesis" and "*session*" in src and not has_tick:
+        body = last.get("body") or ""
+        if "(lambda (book sess)" not in src and "(lambda (book sess)" not in body:
+            if "define quote" in src or "(define (quote" in src:
+                return "quote-only-session"
     return None
 
 
@@ -127,6 +165,11 @@ def main(argv: list[str] | None = None) -> int:
         choices=("dialect", "commercial"),
         help="dialect=flat concat (default); commercial=weighted mix",
     )
+    p.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help="commercial: emit even if twin/session buckets are short or empty",
+    )
     args = p.parse_args(argv)
 
     srcs = list(args.src) if args.src else [p for p in DEFAULT_SRC if p.is_file()]
@@ -139,6 +182,8 @@ def main(argv: list[str] | None = None) -> int:
     per_src: dict[str, int] = {}
     farm_kept = 0
     other_kept = 0
+    seen_pairs: set[tuple[str, str]] = set()
+    dyn_counts: dict[tuple[str, str], int] = defaultdict(int)
     for path in srcs:
         farm = is_farm_path(path)
         farm_n = 0
@@ -156,8 +201,22 @@ def main(argv: list[str] | None = None) -> int:
             if why:
                 skipped += 1
                 continue
+            src_txt = (sample.get("input") or {}).get("source") or ""
+            dkey = (
+                _norm_src(src_txt),
+                json.dumps(sample.get("target") or [], sort_keys=True),
+            )
+            if dkey in seen_pairs:
+                skipped += 1
+                continue
+            ck = dynamics_key(sample)
+            if dyn_counts[ck] >= CAP_PER_DYNAMICS_SUMMARY:
+                skipped += 1
+                continue
             try:
                 rows.append(to_sft(sample) | {"_bucket": bucket_of(path, sample)})
+                seen_pairs.add(dkey)
+                dyn_counts[ck] += 1
             except PatchError:
                 skipped += 1
                 continue
@@ -180,9 +239,11 @@ def main(argv: list[str] | None = None) -> int:
         by: dict[str, list] = {k: [] for k in COMMERCIAL_SHARE}
         for row in rows:
             by.setdefault(row.get("_bucket") or "dialect", []).append(row)
-        empty = [k for k, v in COMMERCIAL_SHARE.items() if not by.get(k)]
+        empty = [k for k in ("twin", "session", "refuse") if not by.get(k)]
         if empty:
-            print(f"export: warning empty commercial buckets {empty}", file=sys.stderr)
+            print(f"export: empty commercial verticals {empty}", file=sys.stderr)
+            if not args.allow_partial:
+                return 2
         mixed = []
         taken = {}
         # Never downsample verticals (twin/session/refuse); they are the scarce commercial signal.
@@ -191,7 +252,6 @@ def main(argv: list[str] | None = None) -> int:
             mixed.extend(bucket)
             taken[k] = len(bucket)
         n_vert = sum(taken.get(k, 0) for k in ("twin", "session", "refuse"))
-        from collections import defaultdict
 
         def pick_diverse(bucket: list, take: int) -> list:
             groups: dict[str, list] = defaultdict(list)
@@ -222,6 +282,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"export: profile=commercial {shares} n={n}")
         if taken.get("twin", 0) / n < 0.15:
             print("export: warning twin share < 15% (world farm keep rate)", file=sys.stderr)
+        n_twin, n_sess = taken.get("twin", 0), taken.get("session", 0)
+        if not args.allow_partial and (n_twin < MIN_TWIN_COMMERCIAL or n_sess < MIN_SESSION_COMMERCIAL):
+            print(
+                f"export: commercial needs twin>={MIN_TWIN_COMMERCIAL} session>={MIN_SESSION_COMMERCIAL} "
+                f"(got twin={n_twin} session={n_sess}); depth-v2 farms (#33–#36) or --allow-partial",
+                file=sys.stderr,
+            )
+            return 2
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", encoding="utf-8") as f:

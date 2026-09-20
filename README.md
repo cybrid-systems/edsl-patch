@@ -84,7 +84,7 @@ Decide / persist / restore stay Strand meanings and are **not** v1 training targ
 
 Farm samples are star-mode control transforms (`lib/farm.aura`). Git harvest stays `collect.py`. Teacher workers still do not mutate.
 
-`--profile commercial` mix: twin-step 40%, session-hot 20%, refuse 20%, L0 dialect 15%, teacher/business 5%. Empty buckets warn; they do not get backfilled with arith. `--profile dialect` is the old flat concat.
+`--profile commercial` mix: twin-step 40%, session-hot 20%, refuse 20%, L0 dialect 15%, teacher/business 5%. Empty vertical buckets are an error (exit 2), not silent arith fill — pass `--allow-partial` only for fixture tests. Commercial also refuses to emit if twin world/path keeps < 50 or session keeps < 30 unless `--allow-partial`. Depth-v2 farms (#33–#36) are a prerequisite. Drops: quote-only session (no `tick`), hardcoded `energy: 12.4` / `t: 40` demo observe, missing observe on step/tick plants. `--profile dialect` is the old flat concat. Eval holdouts are never export inputs.
 
 ## Grok Build
 
