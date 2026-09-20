@@ -66,6 +66,32 @@ class RewardArith(unittest.TestCase):
         self.assertLess(rw["r"], 0)
 
 
+class RewardKv(unittest.TestCase):
+    def setUp(self):
+        self.cfg = json.loads((ROOT / "catalog" / "rewards" / "kv-mini.json").read_text())
+
+    def test_get_eq_beats_miss(self):
+        pre = {"vals": [False, False], "plant": "kv-mini.p0"}
+        hit = {"vals": [10, False], "plant": "kv-mini.p0", "ok": True, "expect": [10, False]}
+        miss = {"vals": [False, False], "plant": "kv-mini.p0", "ok": True, "expect": [10, False]}
+        good = R.reward_kv(pre, hit, {"kind": "synthesis"}, self.cfg)
+        bad = R.reward_kv(pre, miss, {"kind": "synthesis"}, self.cfg)
+        self.assertGreater(good["r"], bad["r"])
+        self.assertEqual(good["cut"], "")
+
+    def test_put_cons_heads_box(self):
+        pre = {"vals": [0, 0], "plant": "kv-mini.p1"}
+        post = {"vals": [1, 1], "plant": "kv-mini.p1", "ok": True, "expect": [1, 1]}
+        rw = R.reward_kv(pre, post, {"kind": "synthesis"}, self.cfg)
+        self.assertGreater(rw["r"], 4.0)
+
+    def test_false_is_not_eval_fail(self):
+        post = {"vals": [False, True], "plant": "kv-mini.p2", "ok": True, "expect": [False, True]}
+        rw = R.reward_kv({}, post, {"kind": "synthesis"}, self.cfg)
+        self.assertNotEqual(rw["cut"], "eval_fail")
+        self.assertEqual(rw["cut"], "")
+
+
 class RewardSession(unittest.TestCase):
     def setUp(self):
         self.cfg = json.loads((ROOT / "catalog" / "rewards" / "session-hot.json").read_text())
@@ -139,6 +165,7 @@ class Tree(unittest.TestCase):
         self.assertIn("twin-step", ids)
         self.assertIn("session-hot", ids)
         self.assertIn("arith-core", ids)
+        self.assertIn("kv-mini", ids)
 
     def test_unknown_project_exits_2(self):
         rc = RO.main(["--project", "no-such", "-o", str(ROOT / "data" / "raw" / "nope.jsonl")])
@@ -164,6 +191,33 @@ class Tree(unittest.TestCase):
         by_sum = {h["target"][-1]["summary"]: h for h in hops if h["target"][-1].get("kind") == "synthesis"}
         if "abs" in by_sum and "plus1" in by_sum:
             self.assertGreater(by_sum["abs"]["reward"]["r"], by_sum["plus1"]["reward"]["r"])
+
+    def test_kv_dry_world_p0_prefers_get_eq(self):
+        cfg = json.loads((ROOT / "catalog" / "rewards" / "kv-mini.json").read_text())
+        hops, traj = RO.rollout_kv(cfg, depth=1, forks=6, plant_id="kv-mini.p0")
+        self.assertTrue(hops)
+        self.assertEqual(traj["project"], "kv-mini")
+        by_sum = {
+            h["target"][-1]["summary"]: h
+            for h in hops
+            if h["target"][-1].get("kind") == "synthesis"
+        }
+        if "get-eq" in by_sum and "get-first" in by_sum:
+            self.assertGreater(by_sum["get-eq"]["reward"]["r"], by_sum["get-first"]["reward"]["r"])
+        if "get-eq" in by_sum:
+            self.assertGreater(by_sum["get-eq"]["reward"]["r"], 4.0)
+
+    def test_kv_put_prefers_cons(self):
+        cfg = json.loads((ROOT / "catalog" / "rewards" / "kv-mini.json").read_text())
+        hops, traj = RO.rollout_kv(cfg, depth=1, forks=4, plant_id="kv-mini.p1")
+        self.assertTrue(hops)
+        by_sum = {
+            h["target"][-1]["summary"]: h
+            for h in hops
+            if h["target"][-1].get("kind") == "synthesis"
+        }
+        self.assertIn("put-cons", by_sum)
+        self.assertGreater(by_sum["put-cons"]["reward"]["r"], 4.0)
 
     def test_twin_emits_hops_and_traj(self):
         cfg = json.loads((ROOT / "catalog" / "rewards" / "twin-step.json").read_text())
@@ -236,6 +290,20 @@ class AuraHost(unittest.TestCase):
         self.assertTrue(hops)
         self.assertEqual(traj.get("host"), "aura")
         self.assertIn("vals", hops[0]["input"]["observe"])
+
+    def test_kv_aura_get_lookup(self):
+        cfg = json.loads((ROOT / "catalog" / "rewards" / "kv-mini.json").read_text())
+        hops, traj = RO.rollout_kv_aura(cfg, depth=1, forks=3, plant_id="kv-mini.p0")
+        self.assertTrue(hops)
+        self.assertEqual(traj.get("host"), "aura")
+        self.assertIn("vals", hops[0]["input"]["observe"])
+        by_sum = {
+            h["target"][-1]["summary"]: h
+            for h in hops
+            if h["target"][-1].get("kind") == "synthesis"
+        }
+        if "get-eq" in by_sum:
+            self.assertGreater(by_sum["get-eq"]["reward"]["r"], 0)
 
 
 if __name__ == "__main__":

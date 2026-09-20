@@ -69,6 +69,7 @@ python3 scripts/farm.py --rounds 24        # star-mode control transforms → da
 python3 scripts/rollout.py --project twin-step --host dry-world --depth 4 --forks 4 --rounds 1
 python3 scripts/rollout.py --host aura --project session-hot --depth 1 --forks 2 --rounds 1 --plant tick-hold
 python3 scripts/rollout.py --project arith-core --plant arith-core.p0 --depth 1 --forks 4 --rounds 1
+python3 scripts/rollout.py --project kv-mini --plant kv-mini.p0 --depth 1 --forks 4 --rounds 1
 python3 scripts/farm.py --mode path --depth 4 --rounds 12   # chain post-source, re-plant every 4
 python3 scripts/export_sft.py --profile dialect data/raw/verified.jsonl data/raw/teacher.jsonl
 python3 scripts/export_sft.py --profile commercial \

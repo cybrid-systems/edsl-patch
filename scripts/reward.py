@@ -137,3 +137,48 @@ def reward_arith(
     if kind == "refuse":
         comp["contract"] = 0.0
     return {"r": r, "components": comp, "cut": cut}
+
+
+def _kv_same(a: Any, b: Any) -> bool:
+    if a is False and b is False:
+        return True
+    if a is True and b is True:
+        return True
+    if a is False or b is False or a is True or b is True:
+        return False
+    try:
+        return float(a) == float(b)
+    except (TypeError, ValueError):
+        return a == b
+
+
+def reward_kv(
+    pre: dict[str, Any],
+    post: dict[str, Any],
+    action: dict[str, Any],
+    cfg: dict[str, Any],
+) -> dict[str, Any]:
+    """Get lookup / put store / miss probes. #f is a legal value, not eval-fail."""
+    comp: dict[str, float] = {}
+    post_vals = list(post.get("vals") or [])
+    kind = action.get("kind")
+    if post.get("ok") is False or not post_vals or any(v is None for v in post_vals):
+        comp["eval"] = _w(cfg, "eval_fail", -10.0)
+        r = comp["eval"]
+        if kind == "refuse":
+            comp["contract"] = _w(cfg, "refuse_correct", 2.0)
+            r += comp["contract"]
+        return {"r": r, "components": comp, "cut": "eval_fail"}
+    expect = post.get("expect")
+    if expect is None:
+        plant_id = post.get("plant") or pre.get("plant")
+        expect = ((cfg.get("plants") or {}).get(plant_id) or {}).get("expect")
+    if not expect:
+        comp["eval"] = 1.0
+        return {"r": 1.0, "components": comp, "cut": ""}
+    n = min(len(post_vals), len(expect))
+    hits = sum(1 for i in range(n) if _kv_same(post_vals[i], expect[i])) if n else 0
+    frac = hits / max(n, 1)
+    comp["match"] = _w(cfg, "match", 5.0) * frac
+    cut = "" if hits == n else "mismatch"
+    return {"r": comp["match"], "components": comp, "cut": cut}

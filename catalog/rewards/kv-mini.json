@@ -1,0 +1,18 @@
+{
+  "kind": "kv",
+  "project": "kv-mini",
+  "depth": 2,
+  "forks": 4,
+  "advantage_min": 0.0,
+  "plants": {
+    "kv-mini.p0": {"probe": "get", "expect": [10, false]},
+    "kv-mini.p1": {"probe": "put", "expect": [1, 1]},
+    "kv-mini.p2": {"probe": "miss", "expect": [false, true]},
+    "kv-mini.p3": {"probe": "get", "expect": [10, false]}
+  },
+  "weights": {
+    "eval_fail": -10.0,
+    "match": 5.0,
+    "refuse_correct": 2.0
+  }
+}

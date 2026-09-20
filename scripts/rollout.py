@@ -167,9 +167,25 @@ def propose_arith(plant: dict, rewrites: list[dict], k: int) -> list[dict]:
         if len(out) >= max(1, k) - 1:
             break
     out.append(
-        {"kind": "refuse", "summary": "hold-arith", "target": _refuse(name, "hold-arith")}
+        {
+            "kind": "refuse",
+            "summary": "hold-arith",
+            "target": _refuse(name, "hold-arith"),
+        }
     )
     return out[: max(1, k)]
+
+
+def propose_kv(plant: dict, rewrites: list[dict], k: int) -> list[dict]:
+    props = propose_arith(plant, rewrites, k)
+    name = (plant.get("hot") or plant.get("names") or ["get"])[0]
+    if props and props[-1].get("kind") == "refuse":
+        props[-1] = {
+            "kind": "refuse",
+            "summary": "hold-kv",
+            "target": _refuse(name, "hold-kv"),
+        }
+    return props
 
 
 def _world_form(world: dict) -> str:
@@ -329,6 +345,59 @@ def emit_aura_arith_hop(
             lines += ["(set! *rb* #t)"]
         lines += [
             f"(set! *vs* (if *rb* (try {grid_form} (catch (e) #f)) #f))",
+            "(if *vs*",
+            "  (begin",
+            '    (display "EDSL_FORK ")',
+            f"    (display (json-encode (hash \"i\" *fi* \"ok\" #t \"obs\" (hash \"epoch\" {int(epoch)} \"vals\" *vs*))))",
+            "    (newline))",
+            '  (begin (display "EDSL_FORK ") (display (json-encode (hash "i" *fi* "ok" #f))) (newline)))',
+        ]
+    lines.append("")
+    return "\n".join(lines)
+
+
+def emit_aura_kv_hop(
+    source: str,
+    name: str,
+    probe: str,
+    props: list[dict],
+    epoch: int,
+) -> str:
+    """One hop: snapshot, sibling rebinds, get-lookup / put-store / miss probes."""
+    if probe == "put":
+        form = f"(sandbox:kv-put {name})"
+    elif probe == "miss":
+        form = f"(sandbox:kv-miss {name})"
+    else:
+        form = f"(sandbox:kv-get {name})"
+    lines = [
+        ";; rollout --host aura kv hop",
+        '(require "sandbox" all:)',
+        f"(set-code {scheme_string(source)})",
+        "(eval-current)",
+        '(display "EDSL_OBS ")',
+        f"(display (json-encode (hash \"epoch\" {int(epoch)} \"vals\" {form})))",
+        "(newline)",
+        '(define *snap* (try (ast:snapshot "rollout") (catch (e) -1)))',
+        "(define *rb* #f)",
+        "(define *vs* #f)",
+    ]
+    for i, p in enumerate(props):
+        lines += [
+            f"(define *fi* {i})",
+            "(if (and (number? *snap*) (>= *snap* 0)) (try (ast:restore *snap*) (catch (e) #f)) #f)",
+            "(try (eval-current) (catch (e) #f))",
+        ]
+        if p.get("kind") == "synthesis":
+            tgt = p["target"][-1]
+            lines += [
+                f"(set! *rb* (try (mutate:rebind {scheme_string(tgt['name'])} {scheme_string(tgt['body'])} {scheme_string(tgt['summary'])}) (catch (e) #f)))",
+                "(if *rb* (try (eval-current) (catch (e) #f)) #f)",
+            ]
+        else:
+            lines += ["(set! *rb* #t)"]
+        lines += [
+            f"(set! *vs* (if *rb* (try {form} (catch (e) #f)) #f))",
             "(if *vs*",
             "  (begin",
             '    (display "EDSL_FORK ")',
@@ -947,6 +1016,212 @@ def rollout_arith_aura(cfg: dict, depth: int, forks: int, plant_id: str) -> tupl
     return hops, traj
 
 
+def _kv_cfg(cfg: dict, plant_id: str) -> tuple[str, list | None]:
+    row = (cfg.get("plants") or {}).get(plant_id) or {}
+    return str(row.get("probe") or "get"), row.get("expect")
+
+
+def rollout_kv(cfg: dict, depth: int, forks: int, plant_id: str) -> tuple[list[dict], dict]:
+    from catalog import load_project
+
+    plants, rewrites = load_project("kv-mini")
+    spec = next((p for p in plants if p["id"] == plant_id or plant_id in p["id"]), plants[0])
+    plant_id = spec["id"]
+    meta = W.KV_PLANTS.get(plant_id)
+    if not meta:
+        return [], {
+            "id": f"traj-{plant_id}",
+            "kind": "traj",
+            "project": "kv-mini",
+            "cut": "no-plant",
+            "hops": [],
+        }
+    name, probe, fn = meta["name"], meta["probe"], meta["fn"]
+    cfg_probe, expect = _kv_cfg(cfg, plant_id)
+    probe = cfg_probe or probe
+    hops: list[dict] = []
+    parent = "root"
+    cut = "depth"
+    traj_id = f"traj-{plant_id}"
+    current_fn = fn
+    for hop in range(1, depth + 1):
+        pre_vals = W.kv_probe_vals(current_fn, probe)
+        obs = W.observe_kv(plant_id, pre_vals, hop, name)
+        if expect is not None:
+            obs["expect"] = expect
+        props = propose_kv(spec, rewrites, forks)
+        scored = []
+        for i, p in enumerate(props):
+            if p["kind"] == "refuse":
+                nxt_fn = current_fn
+            else:
+                nxt_fn = W.KV_FNS.get(p["summary"])
+                if nxt_fn is None:
+                    continue
+            post_vals = W.kv_probe_vals(nxt_fn, probe)
+            post = W.observe_kv(plant_id, post_vals, hop, name)
+            if expect is not None:
+                post["expect"] = expect
+            rw = R.reward_kv(obs, post, p, cfg)
+            scored.append((p, nxt_fn, post, rw, f"{parent}.{i}"))
+        if not scored:
+            cut = "empty"
+            break
+        adv = _adv([s[3]["r"] for s in scored])
+        best_i = max(range(len(scored)), key=lambda i: scored[i][3]["r"])
+        for i, (p, nxt_fn, post, rw, fid) in enumerate(scored):
+            sft = adv[i] > float(cfg.get("advantage_min", 0.0)) and rw.get("cut") != "eval_fail"
+            hops.append(
+                {
+                    "id": f"{traj_id}-h{hop}-{p['summary']}",
+                    "kind": "hop",
+                    "fork_id": fid,
+                    "parent_id": parent,
+                    "hop": hop,
+                    "input": {
+                        "source": spec["source"],
+                        "intent": f"kv {probe} roundtrip; {p['summary']}",
+                        "observe": {k: v for k, v in obs.items() if k != "expect"},
+                    },
+                    "target": p["target"],
+                    "reward": {"r": rw["r"], "advantage": adv[i], "components": rw["components"]},
+                    "verify": {"apply_ok": True, "probes": {"kv_roundtrip": True}},
+                    "sft": sft,
+                }
+            )
+        best = scored[best_i]
+        if best[3].get("cut") == "eval_fail":
+            cut = "eval_fail"
+            break
+        if best[0]["kind"] == "refuse" and hop > 1:
+            cut = "refuse"
+            break
+        if best[0]["kind"] == "synthesis":
+            current_fn = best[1]
+        parent = best[4]
+    traj = {
+        "id": traj_id,
+        "kind": "traj",
+        "project": "kv-mini",
+        "plant": plant_id,
+        "hops": [h["id"] for h in hops],
+        "return": sum(h["reward"]["r"] for h in hops if h.get("sft")),
+        "cut": cut,
+    }
+    return hops, traj
+
+
+def rollout_kv_aura(cfg: dict, depth: int, forks: int, plant_id: str) -> tuple[list[dict], dict]:
+    from catalog import load_project
+    from farm import run_aura
+    from apply import apply_patch
+
+    plants, rewrites = load_project("kv-mini")
+    spec = next((p for p in plants if p["id"] == plant_id or plant_id in p["id"]), plants[0])
+    plant_id = spec["id"]
+    meta = W.KV_PLANTS.get(plant_id) or {"name": (spec.get("names") or ["get"])[0], "probe": "get"}
+    name = meta["name"]
+    probe, expect = _kv_cfg(cfg, plant_id)
+    probe = probe or meta.get("probe") or "get"
+    source = spec["source"]
+    hops: list[dict] = []
+    parent = "root"
+    cut = "depth"
+    traj_id = f"traj-aura-{plant_id}"
+    for hop in range(1, depth + 1):
+        props = propose_kv(spec, rewrites, forks)
+        driver = emit_aura_kv_hop(source, name, probe, props, hop)
+        raw = run_aura(driver, timeout=45)
+        obs_raw, fork_rows = _parse_aura_hop(raw)
+        if not obs_raw:
+            cut = "aura"
+            break
+        obs = {
+            "vals": obs_raw.get("vals") or [],
+            "ok": True,
+            "plant": plant_id,
+            "hot": [name],
+            "frozen": [],
+            "epoch": hop,
+            "probe": probe,
+        }
+        if expect is not None:
+            obs["expect"] = expect
+        scored = []
+        for i, p in enumerate(props):
+            fr = next((f for f in fork_rows if f.get("i") == i), None)
+            if not fr or not fr.get("ok"):
+                continue
+            post_raw = fr.get("obs") or {}
+            post = {
+                "vals": post_raw.get("vals") or [],
+                "ok": True,
+                "plant": plant_id,
+                "hot": [name],
+                "frozen": [],
+                "epoch": hop,
+                "probe": probe,
+            }
+            if expect is not None:
+                post["expect"] = expect
+            rw = R.reward_kv(obs, post, p, cfg)
+            scored.append((p, post, rw, f"{parent}.{i}"))
+        if not scored:
+            cut = "aura"
+            break
+        adv = _adv([s[2]["r"] for s in scored])
+        best_i = max(range(len(scored)), key=lambda i: scored[i][2]["r"])
+        obs_out = {k: v for k, v in obs.items() if k != "expect"}
+        for i, (p, post, rw, fid) in enumerate(scored):
+            sft = adv[i] > float(cfg.get("advantage_min", 0.0)) and rw.get("cut") != "eval_fail"
+            hops.append(
+                {
+                    "id": f"{traj_id}-h{hop}-{p['summary']}",
+                    "kind": "hop",
+                    "fork_id": fid,
+                    "parent_id": parent,
+                    "hop": hop,
+                    "input": {
+                        "source": source,
+                        "intent": f"kv {probe} roundtrip; {p['summary']}",
+                        "observe": obs_out,
+                    },
+                    "target": p["target"],
+                    "reward": {"r": rw["r"], "advantage": adv[i], "components": rw["components"]},
+                    "verify": {"apply_ok": True, "probes": {"kv_roundtrip": True}},
+                    "sft": sft,
+                    "host": "aura",
+                }
+            )
+        best = scored[best_i]
+        if best[2].get("cut") == "eval_fail":
+            cut = "eval_fail"
+            break
+        if best[0]["kind"] == "refuse" and hop > 1:
+            cut = "refuse"
+            break
+        if best[0]["kind"] == "synthesis":
+            try:
+                res = apply_patch(source, best[0]["target"])
+                if res.get("ok") and res.get("source"):
+                    source = res["source"]
+            except Exception:
+                cut = "apply"
+                break
+        parent = best[3]
+    traj = {
+        "id": traj_id,
+        "kind": "traj",
+        "project": "kv-mini",
+        "plant": plant_id,
+        "host": "aura",
+        "hops": [h["id"] for h in hops],
+        "return": sum(h["reward"]["r"] for h in hops if h.get("sft")),
+        "cut": cut,
+    }
+    return hops, traj
+
+
 def main(argv: list[str] | None = None) -> int:
     known = list_reward_projects()
     ap = argparse.ArgumentParser()
@@ -1016,6 +1291,13 @@ def main(argv: list[str] | None = None) -> int:
                     hops, traj = rollout_arith_aura(cfg, args.depth, args.forks, plant)
                 else:
                     hops, traj = rollout_arith(cfg, args.depth, args.forks, plant)
+            elif kind == "kv":
+                kv_plants = list(W.KV_PLANTS.keys())
+                plant = args.plant if args.plant in W.KV_PLANTS else kv_plants[rnd % len(kv_plants)]
+                if args.host == "aura":
+                    hops, traj = rollout_kv_aura(cfg, args.depth, args.forks, plant)
+                else:
+                    hops, traj = rollout_kv(cfg, args.depth, args.forks, plant)
             else:
                 print(f"error: reward kind {kind!r} has no rollout handler", file=sys.stderr)
                 return 2

@@ -244,3 +244,83 @@ def observe_arith(plant_id: str, vals: list, epoch: int, name: str) -> dict[str,
         "frozen": [],
         "epoch": epoch,
     }
+
+
+def _kv_get_eq(box: list, key: Any) -> Any:
+    if not box:
+        return False
+    k, v = box[0]
+    return v if k == key else False
+
+
+def _kv_get_first(box: list, key: Any) -> Any:
+    return box[0][1] if box else False
+
+
+def _kv_get_miss(box: list, key: Any) -> Any:
+    return False
+
+
+def _kv_put_cons(box: list, key: Any, val: Any) -> list:
+    return [(key, val)] + list(box)
+
+
+def _kv_put_id(box: list, key: Any, val: Any) -> list:
+    return box
+
+
+def _kv_miss_empty(box: list, key: Any) -> bool:
+    return len(box) == 0
+
+
+KV_FNS: dict[str, Callable] = {
+    "get-eq": _kv_get_eq,
+    "get-first": _kv_get_first,
+    "get-miss": _kv_get_miss,
+    "get-miss2": _kv_get_miss,
+    "g-miss": _kv_get_miss,
+    "g-cdr": _kv_get_first,
+    "g-eq": lambda box, key: (box[0][0] == key) if box else False,
+    "put-cons": _kv_put_cons,
+    "put-id": _kv_put_id,
+    "miss-always": lambda box, key: True,
+    "miss-empty": _kv_miss_empty,
+    "miss-never": lambda box, key: False,
+}
+
+KV_PLANTS: dict[str, dict[str, Any]] = {
+    "kv-mini.p0": {"name": "get", "probe": "get", "fn": _kv_get_miss},
+    "kv-mini.p1": {"name": "put", "probe": "put", "fn": _kv_put_id},
+    "kv-mini.p2": {"name": "miss", "probe": "miss", "fn": lambda box, key: True},
+    "kv-mini.p3": {"name": "get", "probe": "get", "fn": _kv_get_miss},
+}
+
+
+def kv_probe_vals(fn: Callable, probe: str) -> list:
+    if probe == "get":
+        box = [(1, 10)]
+        return [fn(box, 1), fn(box, 2)]
+    if probe == "put":
+        b0: list = []
+        try:
+            b1 = fn(b0, 1, 10)
+        except Exception:
+            return [None, None]
+        changed = 0 if b1 is b0 else 1
+        headed = 1 if b1 and b1[0] == (1, 10) else 0
+        return [changed, headed]
+    if probe == "miss":
+        return [fn([(1, 10)], 1), fn([], 1)]
+    return []
+
+
+def observe_kv(plant_id: str, vals: list, epoch: int, name: str) -> dict[str, Any]:
+    return {
+        "vals": vals,
+        "ok": all(v is not None for v in vals),
+        "plant": plant_id,
+        "hot": [name],
+        "frozen": [],
+        "epoch": epoch,
+        "probe": "kv",
+    }

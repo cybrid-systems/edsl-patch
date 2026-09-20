@@ -3,7 +3,8 @@
 ; Fork is ast:snapshot, not a CLI fiber. Mutate only via mutate:rebind on a hot name.
 
 (export sandbox:step-n sandbox:obs sandbox:tick-n sandbox:sess-obs
-        sandbox:grid1 sandbox:grid2)
+        sandbox:grid1 sandbox:grid2
+        sandbox:kv-get sandbox:kv-put sandbox:kv-miss)
 
 (define (sandbox:step-n w n)
   (if (<= n 0) w
@@ -43,3 +44,24 @@
     (let ((p (car pairs)))
       (cons (try (fn (car p) (car (cdr p))) (catch (e) #f))
             (sandbox:grid2 fn (cdr pairs))))))
+
+; get: fixture alist ((1 . 10)); hit key 1, miss key 2.
+(define (sandbox:kv-get fn)
+  (let ((box (list (cons 1 10))))
+    (list (try (fn box 1) (catch (e) #f))
+          (try (fn box 2) (catch (e) #f)))))
+
+; put: empty box, store (1 . 10). vals = (changed headed) as 0/1.
+(define (sandbox:kv-put fn)
+  (let ((b0 (quote ()))
+        (b1 (try (fn (quote ()) 1 10) (catch (e) #f))))
+    (list (if (or (not b1) (eq? b0 b1)) 0 1)
+          (if (and b1 (not (null? b1))
+                   (equal? (car (car b1)) 1)
+                   (equal? (cdr (car b1)) 10))
+            1 0))))
+
+; miss: nonempty then empty. expect (#f #t) = key-present / empty-is-miss.
+(define (sandbox:kv-miss fn)
+  (list (try (fn (list (cons 1 10)) 1) (catch (e) #f))
+        (try (fn (quote ()) 1) (catch (e) #f))))

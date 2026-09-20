@@ -8,6 +8,8 @@ Names get/put/miss/default. Bodies are lambdas over alists. No I/O, no evolve, n
 ## Eval assumption
 box is a list of (key . val) pairs; keys comparable with equal?.
 
+Rollout probes (`catalog/rewards/kv-mini.json`): get looks up fixture `((1 . 10))` (hit then miss); put must cons `(1 . 10)` onto `'()`; miss is `#f` on nonempty and `#t` on empty. Hops export as dialect.
+
 ## Forbidden tokens
 - `eval` in plant or body
 - extra `define` inside a rebind body

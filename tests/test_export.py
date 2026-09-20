@@ -197,6 +197,38 @@ class ExportTests(unittest.TestCase):
             "dialect",
         )
 
+    def test_kv_rollout_hop_is_dialect(self):
+        from export_sft import bucket_of, drop_reason
+
+        sample = {
+            "id": "kv-hop",
+            "kind": "hop",
+            "sft": True,
+            "input": {
+                "source": "(define get (lambda (box key) #f))",
+                "intent": "kv get roundtrip; get-eq",
+                "observe": {"vals": [10, False], "hot": ["get"], "epoch": 1},
+            },
+            "target": [
+                {"kind": "query", "op": "find", "name": "get"},
+                {"kind": "query", "op": "def-use", "name": "get"},
+                {
+                    "kind": "synthesis",
+                    "op": "rebind",
+                    "name": "get",
+                    "body": "(lambda (box key) #f)",
+                    "summary": "get-eq",
+                },
+            ],
+            "reward": {"r": 5.0, "advantage": 1.2},
+            "verify": {"apply_ok": True, "probes": {"kv_roundtrip": True}},
+        }
+        self.assertIsNone(drop_reason(sample))
+        self.assertEqual(
+            bucket_of(ROOT / "data" / "raw" / "rollout-kv-mini.jsonl", sample),
+            "dialect",
+        )
+
     def test_demo_observe_12_4_dropped(self):
         from export_sft import drop_reason
 
