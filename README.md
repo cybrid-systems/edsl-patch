@@ -66,6 +66,7 @@ python3 scripts/teach.py                   # teacher lessons + multi-agent varia
 python3 scripts/collect.py --doctor        # sibling + Aura layout (no jsonl)
 python3 scripts/collect.py --limit 5       # real Unify KV / span git rebinds (cap before apply)
 python3 scripts/farm.py --rounds 24        # star-mode control transforms → data/raw/farm.jsonl
+python3 scripts/farm.py --mode path --depth 4 --rounds 12   # chain post-source, re-plant every 4
 python3 scripts/export_sft.py data/raw/business.jsonl data/raw/teacher.jsonl data/raw/verified.jsonl data/raw/farm.jsonl
 ```
 

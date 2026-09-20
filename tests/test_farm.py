@@ -28,6 +28,23 @@ def aura_available() -> bool:
 
 
 class FarmLegalTests(unittest.TestCase):
+    def test_help_documents_path_mode(self):
+        import farm as farm_mod
+        from io import StringIO
+        from unittest.mock import patch
+
+        buf = StringIO()
+        with patch("sys.stdout", buf):
+            try:
+                farm_mod.main(["--help"])
+            except SystemExit as e:
+                self.assertEqual(e.code, 0)
+        self.assertIn("--mode", buf.getvalue())
+        self.assertIn("path", buf.getvalue())
+
+    def test_farm_aura_has_no_fiber_spawn(self):
+        text = (ROOT / "lib" / "farm.aura").read_text(encoding="utf-8")
+        self.assertNotIn("fiber:spawn", text)
     def test_catalog_rewrites_are_legal_patches(self):
         for rw in load_rewrites():
             validate_patch(patch_for(rw["name"], rw["body"], rw["summary"]))
@@ -98,6 +115,41 @@ class FarmHostTests(unittest.TestCase):
                         sources_match(result.get("source") or "", expected),
                         row["id"],
                     )
+
+    def test_path_mode_3_step_chain(self):
+        import farm as farm_mod
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "farm.jsonl"
+            observe = Path(tmp) / "observe.jsonl"
+            rc = farm_mod.main(
+                [
+                    "--mode",
+                    "path",
+                    "--depth",
+                    "3",
+                    "--rounds",
+                    "3",
+                    "--timeout",
+                    "60",
+                    "--out",
+                    str(out),
+                    "--observe",
+                    str(observe),
+                ]
+            )
+            self.assertEqual(rc, 0)
+            rows = [json.loads(l) for l in out.read_text().splitlines() if l.strip()]
+            self.assertGreaterEqual(len(rows), 3)
+            chain = rows[:3]
+            for i, row in enumerate(chain):
+                self.assertEqual(row.get("meta", {}).get("mode"), "path")
+                self.assertEqual(row.get("meta", {}).get("round"), i + 1)
+                self.assertNotIn("fiber:spawn", json.dumps(row))
+            for i in range(2):
+                prev = chain[i]["verify"]["expected_source"]
+                nxt = chain[i + 1]["input"]["source"]
+                self.assertTrue(sources_match(prev, nxt), f"chain {i}->{i+1}")
 
     def test_missing_name_is_observe_not_sample(self):
         driver = """

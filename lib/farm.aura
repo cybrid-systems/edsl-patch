@@ -7,11 +7,16 @@
 ; Host: (query :find) (query :def-use) (ast:snapshot) (mutate:rebind)
 ;       (eval-current) (current-source :workspace) — same as scripts/apply.py.
 
-(export farm:plant! farm:step farm:run)
+(export farm:plant! farm:step farm:run farm:star-mode!)
 
 (define *farm-src* "")
 (define *plant-snap* -1)
 (define *farm-n* 0)
+(define *farm-star* #t)
+
+(define (farm:star-mode! v)
+  (set! *farm-star* v)
+  *farm-star*)
 
 (define (farm-empty? v)
   (or (null? v) (eq? v #f)))
@@ -46,7 +51,7 @@
     #f))
 
 (define (farm-observe reason name summary found)
-  (farm-restore-plant)
+  (if *farm-star* (farm-restore-plant) #f)
   (farm-emit "EDSL_OBSERVE"
              (hash "reason" reason
                    "name" name
@@ -86,7 +91,7 @@
                                                     "expected_source"
                                                     (try (current-source :workspace)
                                                          (catch (e) "")))))
-                    (farm-restore-plant)
+                    (if *farm-star* (farm-restore-plant) #t)
                     #t))))))))))
 
 (define (farm-each fn xs)
