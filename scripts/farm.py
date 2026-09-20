@@ -18,9 +18,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from apply import pick_bin, pick_lib
+from apply import apply_patch, pick_bin, pick_lib
 from catalog import load_plants, load_rewrites, pairs
-from edsl_patch import PatchError, aura_hash, scheme_string, validate_patch
+from edsl_patch import (
+    PatchError,
+    aura_hash,
+    scheme_string,
+    sources_match,
+    validate_patch,
+)
 
 OUT = ROOT / "data" / "raw" / "farm.jsonl"
 OBSERVE = ROOT / "data" / "raw" / "farm-observe.jsonl"
@@ -131,18 +137,76 @@ def make_id(plant: dict, rw: dict, name: str) -> str:
     return f"farm-{plant['id']}-{rw['id']}-{name}"
 
 
+def read_jsonl(path: Path) -> list[dict]:
+    rows = []
+    if not path.is_file():
+        return rows
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            rows.append(json.loads(line))
+    return rows
+
+
+def spot_check(path: Path, frac: float) -> int:
+    """Re-apply a fraction of farm.jsonl keeps. Default frac=0.01."""
+    rows = read_jsonl(path)
+    if not rows:
+        print(f"farm: spot-check empty {path}", file=sys.stderr)
+        return 1
+    if frac >= 1.0:
+        chosen = rows
+    else:
+        n = max(1, int(round(len(rows) * frac)))
+        chosen = rows[:n]
+    fail = 0
+    for row in chosen:
+        src = (row.get("input") or {}).get("source")
+        target = row.get("target")
+        try:
+            result = apply_patch(src, target)
+        except (PatchError, TypeError) as e:
+            print(f"farm: spot-check fail {row.get('id')}: {e}", file=sys.stderr)
+            fail += 1
+            continue
+        if not result.get("ok"):
+            print(f"farm: spot-check apply-not-ok {row.get('id')}", file=sys.stderr)
+            fail += 1
+            continue
+        expected = (row.get("verify") or {}).get("expected_source")
+        if expected and not sources_match(result.get("source") or "", expected):
+            print(f"farm: spot-check mismatch {row.get('id')}", file=sys.stderr)
+            fail += 1
+    print(f"farm: spot-check n={len(chosen)} fail={fail} frac={frac} {path}")
+    return 0 if fail == 0 else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--rounds", type=int, default=24, help="cap on attempts (pairs), not keeps")
     p.add_argument("--timeout", type=int, default=120, help="whole Aura process timeout seconds")
-    p.add_argument("--mode", default="star", help="only 'star' is supported")
+    p.add_argument("--mode", default="star", help="star (default); path is #9")
     p.add_argument("--limit-rewrites", type=int, default=0)
     p.add_argument("--out", type=Path, default=OUT)
     p.add_argument("--observe", type=Path, default=OBSERVE)
+    p.add_argument("--spot-check", type=Path, default=None, help="re-apply keeps in this jsonl")
+    p.add_argument(
+        "--spot-frac",
+        type=float,
+        default=0.01,
+        help="fraction of rows to re-apply (1.0 in tests; 0.01 default)",
+    )
     args = p.parse_args(argv)
 
+    if args.spot_check is not None:
+        try:
+            pick_bin()
+        except SystemExit as e:
+            print(str(e), file=sys.stderr)
+            return 1
+        return spot_check(args.spot_check, args.spot_frac)
+
     if args.mode != "star":
-        print("error: only --mode star is supported", file=sys.stderr)
+        print("error: only --mode star is supported (path is a later issue)", file=sys.stderr)
         return 2
 
     try:
