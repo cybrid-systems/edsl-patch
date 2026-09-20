@@ -178,8 +178,12 @@ def load_sample(obj: dict[str, Any] | str | Path) -> dict[str, Any]:
     observe = obj.get("input", {}).get("observe") if isinstance(obj.get("input"), dict) else None
     if observe is not None and not isinstance(observe, dict):
         observe = None
+    inp = dict(obj.get("input") or {})
+    inp["source"] = source
+    if obj.get("sft") is False:
+        return obj | {"input": inp, "target": obj.get("target") or []}
     target = validate_patch(obj.get("target"), observe=observe)
-    return obj | {"input": {"source": source}, "target": target}
+    return obj | {"input": inp, "target": target}
 
 
 def normalize_source(src: str) -> str:
@@ -230,13 +234,18 @@ def emit_driver(source_path: Path, patch: list[dict[str, Any]]) -> str:
                 f'(q-run "def-use" (try (query :def-use {scheme_string(step["name"])})'
                 f" (catch (e) #f)))"
             )
-    synth = patch[-1]
+    synth = patch[-1] if patch else {"kind": "refuse", "op": "schema"}
     lines += [
         "",
         '(define *snap* (try (ast:snapshot "edsl-patch") (catch (e) -1)))',
         "",
     ]
-    if synth["op"] == "rebind":
+    if synth.get("kind") == "refuse":
+        lines += [
+            '(set! *syn-op* "refuse")',
+            "(set! *syn-ok* #t)",
+        ]
+    elif synth.get("op") == "rebind":
         lines += [
             f"(set! *syn-op* \"rebind\")",
             f"(set! *syn-ok* (try (mutate:rebind {scheme_string(synth['name'])} "
