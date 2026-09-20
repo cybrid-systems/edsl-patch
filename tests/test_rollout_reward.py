@@ -1,0 +1,91 @@
+import json
+import sys
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+
+import reward as R  # noqa: E402
+import rollout as RO  # noqa: E402
+import sandbox_world as W  # noqa: E402
+
+
+class RewardTwin(unittest.TestCase):
+    def setUp(self):
+        self.cfg = json.loads((ROOT / "catalog" / "rewards" / "twin-step.json").read_text())
+
+    def test_energy_drop_positive(self):
+        pre = {"t": 0, "energy": 10.0}
+        post = {"t": 40, "energy": 4.0}
+        rw = R.reward_twin(pre, post, {"kind": "synthesis"}, self.cfg)
+        self.assertGreater(rw["r"], 0)
+        self.assertEqual(rw["cut"], "")
+
+    def test_t_break_hard(self):
+        pre = {"t": 0, "energy": 10.0}
+        post = {"t": 0, "energy": 1.0}
+        rw = R.reward_twin(pre, post, {"kind": "synthesis"}, self.cfg)
+        self.assertLess(rw["r"], 0)
+        self.assertEqual(rw["cut"], "t_break")
+
+    def test_refuse_when_worse(self):
+        pre = {"t": 0, "energy": 4.0}
+        post = {"t": 40, "energy": 9.0}
+        good = R.reward_twin(pre, post, {"kind": "refuse"}, self.cfg)
+        bad = R.reward_twin(pre, post, {"kind": "synthesis"}, self.cfg)
+        self.assertGreater(good["r"], bad["r"])
+
+    def test_sign_damp_sat_penalty(self):
+        w0 = dict(W.PLANTS["sat-plant"]["world0"])
+        pre_w = W.run_twin("sat-plant", "zero-u", 8, w0)
+        post_w = W.run_twin("sat-plant", "sign-damp", 40, pre_w)
+        pre = W.observe_twin("sat-plant", pre_w, 1)
+        post = W.observe_twin("sat-plant", post_w, 1)
+        rw = R.reward_twin(pre, post, {"kind": "synthesis"}, self.cfg)
+        self.assertIn("sat", rw["components"])
+
+
+class RewardSession(unittest.TestCase):
+    def setUp(self):
+        self.cfg = json.loads((ROOT / "catalog" / "rewards" / "session-hot.json").read_text())
+
+    def test_kill_alive_breaks(self):
+        s0 = {"id": 1, "fd": 7, "alive": True, "seq": 0}
+        s1 = W.run_session("kill-alive", 8, s0)
+        pre = W.observe_session(s0, 1)
+        post = W.observe_session(s1, 1)
+        rw = R.reward_session(pre, post, {"kind": "synthesis"}, self.cfg, 8)
+        self.assertEqual(rw["cut"], "identity")
+        self.assertLess(rw["r"], 0)
+
+    def test_clip_holds_identity(self):
+        s0 = {"id": 1, "fd": 7, "alive": True, "seq": 0}
+        s1 = W.run_session("clip-abs", 8, s0)
+        pre = W.observe_session(s0, 1)
+        post = W.observe_session(s1, 1)
+        rw = R.reward_session(pre, post, {"kind": "synthesis"}, self.cfg, 8)
+        self.assertNotEqual(rw["cut"], "identity")
+        self.assertGreater(rw["r"], 0)
+
+
+class Tree(unittest.TestCase):
+    def test_twin_emits_hops_and_traj(self):
+        cfg = json.loads((ROOT / "catalog" / "rewards" / "twin-step.json").read_text())
+        hops, traj = RO.rollout_twin(cfg, depth=3, forks=4, plant="mass-spring")
+        self.assertGreaterEqual(len(hops), 3)
+        self.assertEqual(traj["kind"], "traj")
+        self.assertTrue(any(h.get("sft") for h in hops) or traj["cut"])
+        self.assertTrue(all("observe" in h["input"] for h in hops))
+
+    def test_session_does_not_continue_after_kill_as_best_if_cut(self):
+        cfg = json.loads((ROOT / "catalog" / "rewards" / "session-hot.json").read_text())
+        hops, traj = RO.rollout_session(cfg, depth=4, forks=4)
+        self.assertTrue(hops)
+        kills = [h for h in hops if h["id"].endswith("kill-alive")]
+        for h in kills:
+            self.assertFalse(h.get("sft"))
+
+
+if __name__ == "__main__":
+    unittest.main()
