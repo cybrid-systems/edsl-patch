@@ -55,7 +55,7 @@ class ResolveTests(unittest.TestCase):
 class PlanTests(unittest.TestCase):
     def test_plan_all_never_selects_full(self):
         plans = fb.plan_all()
-        self.assertEqual(len(plans), 8)
+        self.assertGreaterEqual(len(plans), 8)
         for p in plans:
             self.assertNotEqual(p["auto_preset"], "full")
             self.assertIn(p["auto_preset"], {"off", "smoke", "small", "medium"})

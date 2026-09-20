@@ -48,6 +48,7 @@ One model output = one JSON **array**.
 ## Continuous farm
 
 Use `scripts/farm_loop.py --project <id> --budget small` (default smoke).
+Vertical projects `twin-step` / `session-hot` use `--mode world`; do not treat them as arith star farms.
 One project per session. Paste `/goal` from `catalog/projects/LOOP.md`.
 On catalog-exhausted, extend only that project's plants/rewrites (≤ max-catalog-edits).
 Never `/loop`, never a second project, never `--budget full` unless asked.

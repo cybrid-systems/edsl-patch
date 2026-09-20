@@ -30,6 +30,15 @@ python3 scripts/collect.py --limit "$(python3 -c 'from farm_budget import resolv
 Auto (`--plan`) never selects `full`. Unset env → `smoke`.
 A `/goal` that says 3000 without `--budget full` / `EDSL_PATCH_BUDGET=full` is clamped.
 
+## Verticals (world-mode)
+
+| project | keep target | cap-per-summary | world steps |
+|---------|-------------|-----------------|-------------|
+| twin-step | 1500 | 200 | N_pre=N_post=40 |
+| session-hot | 800 | 120 | K=8 quote calls |
+
+Farm these with `--mode world`, not star. Dialect projects stay `--mode star`.
+
 ## How much data
 
 Estimates use 520 B / farm row and 800 B / collect row (see `examples/identity-to-abs.jsonl` ≈ 369 B plus verify).

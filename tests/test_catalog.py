@@ -56,6 +56,24 @@ class CatalogTests(unittest.TestCase):
         orch = (ROOT / "catalog" / "projects" / "orch-pure" / "plants.jsonl").read_text()
         self.assertNotIn("agent:", orch)
         self.assertNotIn("fiber:", orch)
+        self.assertIn("catalog: twin-step", r.stdout)
+        self.assertIn("catalog: session-hot", r.stdout)
+
+    def test_rewrite_step_fails_hot_check(self):
+        from catalog import check_project, load_project
+
+        plants, rewrites = load_project("twin-step")
+        rewrites = list(rewrites) + [
+            {
+                "id": "bad.step",
+                "name": "step",
+                "body": "(lambda (w u) w)",
+                "summary": "freeze-break",
+                "arity": 2,
+            }
+        ]
+        errs = check_project("twin-step", plants, rewrites)
+        self.assertTrue(any("not in hot" in e for e in errs), errs)
 
 
 if __name__ == "__main__":

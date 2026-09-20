@@ -141,6 +141,21 @@ def check_project(pid: str, plants: list[dict], rewrites: list[dict]) -> list[st
                 if tok in src:
                     errs.append(f"{pid}:{p.get('id')}: plant forbids {tok}")
         names = p.get("names") or []
+        hot = p.get("hot")
+        frozen = p.get("frozen")
+        if hot is not None:
+            if names != hot:
+                errs.append(f"{pid}:{p.get('id')} names must equal hot")
+            if frozen and set(hot) & set(frozen):
+                errs.append(f"{pid}:{p.get('id')} hot ∩ frozen nonempty")
+            for rw in rewrites:
+                rname = rw.get("name")
+                if rname and rname not in hot:
+                    errs.append(f"{pid}:{rw.get('id')} rewrite name {rname} not in hot")
+            defs = extract_defines(src)
+            for sym in list(hot) + list(frozen or []):
+                if sym not in defs and f"(define {sym}" not in src and f"(define ({sym}" not in src:
+                    errs.append(f"{pid}:{p.get('id')} missing define {sym}")
         if not names:
             errs.append(f"{pid}:{p.get('id')} missing names")
         if not src.strip():

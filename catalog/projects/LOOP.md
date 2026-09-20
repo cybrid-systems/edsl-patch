@@ -35,6 +35,10 @@ python3 scripts/farm_loop.py --project <id> --budget small
 | `span-aether` | index/length/clip |
 | `circ-dae` | node/edge/eval-node |
 | `orch-pure` | step/route/merge (no agent/fiber/synthesize) |
+| `twin-step` | frozen integrator + hot control (`--mode world`) |
+| `session-hot` | frozen session + hot quote (`--mode world`) |
+
+Dialect projects stay `--mode star`. Verticals use `--mode world`.
 
 ## Paste-ready `/goal`
 
@@ -108,4 +112,22 @@ Use scripts/farm_loop.py --project orch-pure --budget small.
 Honor EDSL_PATCH_BUDGET if set; default smoke. Do not pass --budget full unless the operator said full.
 If catalog-exhausted, extend catalog/projects/orch-pure/ only up to max-catalog-edits, re-check, continue.
 Do not touch other projects. Do not commit data/raw. Stop on quota, budget, wall, or max-loop.
+```
+
+### twin-step
+```
+/goal Farm project twin-step under budget=small with --mode world.
+Use scripts/farm_loop.py --project twin-step --mode world --budget small.
+Honor EDSL_PATCH_BUDGET if set; default smoke. Do not pass --budget full unless the operator said full.
+If catalog-exhausted, extend catalog/projects/twin-step/ only up to max-catalog-edits, re-check, continue.
+Do not rebind step/energy. Do not commit data/raw. Stop on quota, budget, wall, or max-loop.
+```
+
+### session-hot
+```
+/goal Farm project session-hot under budget=small with --mode world.
+Use scripts/farm_loop.py --project session-hot --mode world --budget small.
+Honor EDSL_PATCH_BUDGET if set; default smoke. Do not pass --budget full unless the operator said full.
+If catalog-exhausted, extend catalog/projects/session-hot/ only up to max-catalog-edits, re-check, continue.
+Do not rebind *session*. Do not commit data/raw. Stop on quota, budget, wall, or max-loop.
 ```

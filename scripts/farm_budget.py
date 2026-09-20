@@ -88,6 +88,8 @@ PROJECT_IDS = (
     "span-aether",
     "circ-dae",
     "orch-pure",
+    "twin-step",
+    "session-hot",
 )
 
 ENV_KEYS = {
