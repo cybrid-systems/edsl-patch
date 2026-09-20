@@ -46,6 +46,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--wall-seconds", type=int, default=None)
     p.add_argument("--max-catalog-edits", type=int, default=None)
     p.add_argument("--max-attempts", type=int, default=None)
+    p.add_argument("--mode", default="star", help="star (dialect) or world (twin-step/session-hot)")
     args = p.parse_args(argv)
 
     if args.project not in known:
@@ -89,6 +90,34 @@ def main(argv: list[str] | None = None) -> int:
             reason = "wall"
             break
         loops += 1
+        if args.mode == "world":
+            from farm import main as farm_main
+
+            rounds = args.max_attempts or min(24, int(target))
+            outp = ROOT / "data" / "raw" / f"farm-world-{args.project}.jsonl"
+            rc = farm_main(
+                [
+                    "--mode",
+                    "world",
+                    "--project",
+                    args.project,
+                    "--rounds",
+                    str(rounds),
+                    "--timeout",
+                    str(min(120, max(30, wall))),
+                    "--out",
+                    str(outp),
+                ]
+            )
+            if outp.is_file():
+                keep = sum(1 for line in outp.read_text().splitlines() if line.strip())
+            if keep >= target:
+                reason = "quota"
+                break
+            if rc != 0 and keep == 0:
+                reason = "catalog-exhausted"
+                break
+            continue
         fp_argv = [
             "--project",
             args.project,

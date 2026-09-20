@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from apply import apply_patch, pick_bin, pick_lib
-from catalog import load_plants, load_rewrites, pairs
+from catalog import load_plants, load_project, load_rewrites, pairs, project_pairs
 from edsl_patch import (
     PatchError,
     aura_hash,
@@ -153,6 +153,25 @@ def make_id(plant: dict, rw: dict, name: str) -> str:
     return f"farm-{plant['id']}-{rw['id']}-{name}"
 
 
+def twin_should_keep(t0: float, t1: float, n_post: int, e0: float, e1: float, name: str, frozen: list[str]) -> bool:
+    if name in frozen or name in ("step", "energy"):
+        return False
+    if int(t1) != int(t0) + int(n_post):
+        return False
+    return float(e1) < float(e0)
+
+
+def session_should_keep(pre: dict, post: dict, name: str) -> bool:
+    if name in ("*session*", "gate"):
+        return False
+    return (
+        pre.get("id") == post.get("id")
+        and pre.get("fd") == post.get("fd")
+        and bool(pre.get("alive")) is True
+        and bool(post.get("alive")) is True
+    )
+
+
 def read_jsonl(path: Path) -> list[dict]:
     rows = []
     if not path.is_file():
@@ -196,14 +215,204 @@ def spot_check(path: Path, frac: float) -> int:
     return 0 if fail == 0 else 1
 
 
+def emit_twin_world_driver(plan: list[tuple[dict, dict, str]], n_pre: int = 40, n_post: int = 40) -> str:
+    lines = [";; world-mode twin-step", '(require "farm" all:)']
+    for plant, rw, name in plan:
+        if name in (plant.get("frozen") or []) or name in ("step", "energy"):
+            continue
+        lines += [
+            f"(set-code {scheme_string(plant['source'])})",
+            "(eval-current)",
+            '(define *w* (hash "x" 2 "v" 1 "t" 0))',
+            "(define (go k)",
+            "  (if (<= k 0) #t",
+            "    (begin (set! *w* (step *w* (control *w*))) (go (- k 1)))))",
+            f"(go {n_pre})",
+            '(define *t0* (hash-ref *w* "t"))',
+            "(define *e0* (energy *w*))",
+            f"(define *rb* (try (mutate:rebind {scheme_string(name)} {scheme_string(rw['body'])} {scheme_string(rw['summary'])}) (catch (e) #f)))",
+            "(if *rb* (try (eval-current) (catch (e) #f)) #f)",
+            f"(go {n_post})",
+            '(define *t1* (hash-ref *w* "t"))',
+            "(define *e1* (energy *w*))",
+            "(if (and *rb* (= *t1* (+ *t0* " + str(n_post) + ")) (< *e1* *e0*))",
+            "  (begin",
+            f'    (display "WORLD_SAMPLE ")',
+            "    (display (json-encode (hash \"id\" "
+            + scheme_string(f"world-{plant['id']}-{rw['id']}")
+            + ' "t0" *t0* "t1" *t1* "e0" *e0* "e1" *e1*',
+            '      "name" '
+            + scheme_string(name)
+            + ' "summary" '
+            + scheme_string(rw["summary"])
+            + ' "source" '
+            + scheme_string(plant["source"])
+            + ' "body" '
+            + scheme_string(rw["body"])
+            + ")))",
+            "    (newline))",
+            '  (begin (display "WORLD_DROP ") (display *e1*) (newline)))',
+        ]
+    lines.append("")
+    return "\n".join(lines)
+
+
+def emit_session_world_driver(plan: list[tuple[dict, dict, str]], k: int = 8) -> str:
+    lines = [";; world-mode session-hot"]
+    for plant, rw, name in plan:
+        if name in ("*session*", "gate"):
+            continue
+        lines += [
+            f"(set-code {scheme_string(plant['source'])})",
+            "(eval-current)",
+            '(define *sid* (hash-ref *session* "id"))',
+            '(define *sfd* (hash-ref *session* "fd"))',
+            '(define *sal* (hash-ref *session* "alive"))',
+            f"(define *rb* (try (mutate:rebind {scheme_string(name)} {scheme_string(rw['body'])} {scheme_string(rw['summary'])}) (catch (e) #f)))",
+            "(if *rb* (try (eval-current) (catch (e) #f)) #f)",
+            '(define *book* (hash "bid" 1 "ask" 3 "mid" 2 "spread" 2))',
+            "(define *qf* quote)",
+            "(define *okq* #t)",
+            f"(define (go i) (if (<= i 0) #t (begin (try (*qf* *book*) (catch (e) (set! *okq* #f))) (go (- i 1)))))",
+            f"(go {k})",
+            "(define *sid2* (hash-ref *session* \"id\"))",
+            "(define *sfd2* (hash-ref *session* \"fd\"))",
+            "(define *sal2* (hash-ref *session* \"alive\"))",
+            "(if *rb*",
+            "  (begin (display \"WORLD_SAMPLE \")",
+            "    (display (json-encode (hash \"id\" "
+            + scheme_string(f"world-{plant['id']}-{rw['id']}")
+            + ' "name" '
+            + scheme_string(name)
+            + ' "summary" '
+            + scheme_string(rw["summary"])
+            + ' "source" '
+            + scheme_string(plant["source"])
+            + ' "body" '
+            + scheme_string(rw["body"])
+            + ' "sid" *sid* "sfd" *sfd*)))',
+            "    (newline))",
+            "  (begin (display \"WORLD_DROP session\") (newline)))",
+        ]
+    lines.append("")
+    return "\n".join(lines)
+
+
+def run_world(args: argparse.Namespace) -> int:
+    pid = args.project
+    if pid not in ("twin-step", "session-hot"):
+        print("error: --mode world requires --project twin-step|session-hot", file=sys.stderr)
+        return 2
+    plants, rewrites = load_project(pid)
+    plan = project_pairs(plants, rewrites)[: args.rounds]
+    if args.limit_rewrites:
+        rewrites = rewrites[: args.limit_rewrites]
+        plan = project_pairs(plants, rewrites)[: args.rounds]
+    out_path = args.out if args.out != OUT else (
+        ROOT / "data" / "raw" / f"farm-world-{pid}.jsonl"
+    )
+    if pid == "twin-step":
+        driver = emit_twin_world_driver(plan)
+    else:
+        driver = emit_session_world_driver(plan)
+    try:
+        raw = run_aura(driver, timeout=args.timeout)
+    except PatchError as e:
+        print(f"farm: {e}", file=sys.stderr)
+        return 1
+    keep = drop = 0
+    seen = seen_ids(out_path)
+    for line in raw.splitlines():
+        if line.startswith("WORLD_DROP"):
+            drop += 1
+            continue
+        if not line.startswith("WORLD_SAMPLE "):
+            continue
+        rec = json.loads(line[len("WORLD_SAMPLE ") :])
+        name = rec.get("name")
+        frozen = ["step", "energy"] if pid == "twin-step" else ["*session*"]
+        if pid == "twin-step":
+            if not twin_should_keep(rec["t0"], rec["t1"], 40, rec["e0"], rec["e1"], name, frozen):
+                drop += 1
+                continue
+            sample = {
+                "id": rec["id"],
+                "input": {
+                    "source": rec["source"],
+                    "observe": {
+                        "t": rec["t0"],
+                        "energy": rec["e0"],
+                        "hot": ["control"],
+                        "frozen": frozen,
+                    },
+                },
+                "target": [
+                    {"kind": "query", "op": "find", "name": name},
+                    {"kind": "query", "op": "def-use", "name": name},
+                    {
+                        "kind": "synthesis",
+                        "op": "rebind",
+                        "name": name,
+                        "body": rec["body"],
+                        "summary": rec["summary"],
+                    },
+                ],
+                "verify": {
+                    "apply_ok": True,
+                    "unchanged": frozen,
+                    "probes": {"t_mono": True, "energy_after_steps_lt": rec["e1"] + 0.001},
+                },
+            }
+        else:
+            pre = {"id": rec["sid"], "fd": rec["sfd"], "alive": True}
+            if not session_should_keep(pre, pre, name):
+                drop += 1
+                continue
+            sample = {
+                "id": rec["id"],
+                "input": {
+                    "source": rec["source"],
+                    "observe": {
+                        "session": pre,
+                        "hot": ["quote"],
+                        "frozen": ["*session*"],
+                    },
+                },
+                "target": [
+                    {"kind": "query", "op": "find", "name": name},
+                    {
+                        "kind": "synthesis",
+                        "op": "rebind",
+                        "name": name,
+                        "body": rec["body"],
+                        "summary": rec["summary"],
+                    },
+                ],
+                "verify": {"apply_ok": True, "probes": {"session_stable": True}},
+            }
+        try:
+            validate_patch(sample["target"], observe=sample["input"]["observe"])
+        except PatchError:
+            drop += 1
+            continue
+        if sample["id"] in seen:
+            continue
+        append_jsonl(out_path, sample)
+        seen.add(sample["id"])
+        keep += 1
+    print(f"farm: mode=world project={pid} keep={keep} drop={drop} -> {out_path}")
+    return 0 if keep else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--rounds", type=int, default=24, help="cap on attempts (pairs), not keeps")
     p.add_argument("--timeout", type=int, default=120, help="whole Aura process timeout seconds")
+    p.add_argument("--project", default="", help="catalog/projects/<id> (required for --mode world)")
     p.add_argument(
         "--mode",
         default="star",
-        help="star (default, re-plant every rewrite) or path (chain post-source, depth cap 4)",
+        help="star | path | world (twin-step / session-hot)",
     )
     p.add_argument(
         "--depth",
@@ -231,9 +440,11 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         return spot_check(args.spot_check, args.spot_frac)
 
-    if args.mode not in ("star", "path"):
-        print("error: --mode must be star or path", file=sys.stderr)
+    if args.mode not in ("star", "path", "world"):
+        print("error: --mode must be star, path, or world", file=sys.stderr)
         return 2
+    if args.mode == "world":
+        return run_world(args)
     depth = max(1, min(args.depth, 4))
 
     try:

@@ -27,6 +27,23 @@ def aura_available() -> bool:
         return False
 
 
+class WorldKeepTests(unittest.TestCase):
+    def test_twin_keep_drop(self):
+        from farm import twin_should_keep
+
+        self.assertTrue(twin_should_keep(40, 80, 40, 10.0, 3.0, "control", ["step"]))
+        self.assertFalse(twin_should_keep(40, 80, 40, 10.0, 12.0, "control", ["step"]))
+        self.assertFalse(twin_should_keep(40, 80, 40, 10.0, 3.0, "step", ["step"]))
+
+    def test_session_keep_drop(self):
+        from farm import session_should_keep
+
+        s = {"id": 1, "fd": 7, "alive": True}
+        self.assertTrue(session_should_keep(s, s, "quote"))
+        self.assertFalse(session_should_keep(s, {"id": 1, "fd": 7, "alive": False}, "quote"))
+        self.assertFalse(session_should_keep(s, s, "*session*"))
+
+
 class FarmLegalTests(unittest.TestCase):
     def test_help_documents_path_mode(self):
         import farm as farm_mod
