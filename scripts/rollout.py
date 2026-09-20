@@ -52,6 +52,27 @@ TWIN_BODIES = {
 }
 
 
+def map_catalog_proposals(raw: list[dict], *, name: str = "control") -> list[dict]:
+    """Host maps worker summaries → catalog bodies. Unknown summaries drop."""
+    out: list[dict] = []
+    bodies = TWIN_BODIES if name == "control" else {}
+    for item in raw:
+        summary = item.get("summary")
+        if summary not in bodies:
+            continue
+        n = item.get("name") or name
+        out.append(
+            {
+                "kind": "synthesis",
+                "summary": summary,
+                "control_id": summary,
+                "target": _patch(n, bodies[summary], summary),
+                "proposer": "agent:ask",
+            }
+        )
+    return out
+
+
 def propose_twin(obs: dict, k: int) -> list[dict]:
     e = float(obs.get("energy", 0))
     out: list[dict] = []
@@ -173,6 +194,26 @@ def rollout_twin_aura(cfg: dict, depth: int, forks: int, plant: str) -> tuple[li
     pre_n = n_pre
     for hop in range(1, depth + 1):
         props = propose_twin({"energy": 50.0, "epoch": hop, "t": 0}, forks)
+        if cfg.get("proposers") == "agent-ask":
+            from farm import run_aura as _run
+
+            ask = "\n".join(
+                [
+                    '(require "rollout-workers" all:)',
+                    '(display "EDSL_PROP ")',
+                    "(display (json-encode (rollout-proposer:ask)))",
+                    "(newline)",
+                ]
+            )
+            raw_prop = _run(ask, timeout=20)
+            parsed: list[dict] = []
+            for line in raw_prop.splitlines():
+                if line.startswith("EDSL_PROP "):
+                    val = json.loads(line[len("EDSL_PROP ") :])
+                    parsed = val if isinstance(val, list) else []
+            mapped = map_catalog_proposals(parsed)
+            if mapped:
+                props = mapped[: max(1, forks)]
         driver = emit_aura_twin_hop(source, world_form, pre_n, n_post, props, hop)
         raw = run_aura(driver, timeout=45)
         if "fiber:spawn" in driver:
@@ -228,6 +269,7 @@ def rollout_twin_aura(cfg: dict, depth: int, forks: int, plant: str) -> tuple[li
                         "probes": {"t_mono": True},
                     },
                     "sft": sft,
+                    "proposer": p.get("proposer") or "catalog",
                 }
             )
         best = scored[best_i]
@@ -414,6 +456,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--rounds", type=int, default=4)
     ap.add_argument("--plant", default="mass-spring")
     ap.add_argument("--host", default="dry-world", choices=("dry-world", "aura"))
+    ap.add_argument(
+        "--proposers",
+        default="catalog",
+        choices=("catalog", "agent-ask"),
+        help="catalog sampler, or agent:ask workers (host aura only)",
+    )
     ap.add_argument("-o", "--out", default="")
     args = ap.parse_args(argv)
     if args.host == "aura":
@@ -427,6 +475,9 @@ def main(argv: list[str] | None = None) -> int:
             return 2
     cfg_path = ROOT / "catalog" / "rewards" / f"{args.project}.json"
     cfg = _load_json(cfg_path) if cfg_path.exists() else {}
+    if args.proposers == "agent-ask":
+        cfg = dict(cfg)
+        cfg["proposers"] = "agent-ask"
     out_path = Path(args.out) if args.out else ROOT / "data" / "raw" / f"rollout-{args.project}.jsonl"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     n = 0

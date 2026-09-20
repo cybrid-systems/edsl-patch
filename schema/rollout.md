@@ -95,3 +95,5 @@ python3 -m unittest tests.test_rollout_reward -v
 and tree cuts can be tested. `--host aura` plants, `ast:snapshot`s, rebinds, and steps via
 `lib/sandbox.aura` (`EDSL_OBS`). Snapshot restore is plumbing, never an SFT `restore` label.
 `--host aura` without a binary exits 2. No `fiber:spawn`.
+`--proposers agent-ask` installs mutate-free workers (`lib/rollout-workers.aura`);
+the host maps `{summary,name}` onto catalog bodies and drops unknown summaries.

@@ -1,0 +1,19 @@
+; lib/rollout-workers.aura — propose-only catalog samplers for rollout.py.
+; Same pattern as lib/teacher.aura: agent:ask workers, host mutates.
+; Workers return {summary, name} or a refuse why. Never an extra define.
+; Forbidden in this file: set-code, mutate:rebind, eval-current.
+
+(export rollout-proposer:catalog rollout-proposer:ask)
+
+(define (rollout-proposer:catalog)
+  (list (hash "summary" "clip-u" "name" "control")
+        (hash "summary" "pd" "name" "control")
+        (hash "summary" "damp-v" "name" "control")
+        (hash "summary" "not-in-catalog" "name" "control")))
+
+(define (rollout-proposer:ask)
+  (define local (rollout-proposer:catalog))
+  (define wid (try (agent:spawn "rollout-proposer" (lambda () local)) (catch (e) #f)))
+  (if wid
+    (try (agent:ask wid "propose") (catch (e) local))
+    local))

@@ -94,6 +94,27 @@ class Tree(unittest.TestCase):
             rc = RO.main(["--host", "aura", "-o", str(ROOT / "data" / "raw" / "nope.jsonl")])
         self.assertEqual(rc, 2)
 
+    def test_unknown_summary_dropped(self):
+        mapped = RO.map_catalog_proposals(
+            [
+                {"summary": "pd", "name": "control"},
+                {"summary": "not-in-catalog", "name": "control"},
+                {"summary": "clip-u", "name": "control"},
+            ]
+        )
+        self.assertEqual([m["summary"] for m in mapped], ["pd", "clip-u"])
+        self.assertTrue(all(m.get("proposer") == "agent:ask" for m in mapped))
+
+    def test_teacher_and_rollout_workers_are_mutate_free(self):
+        import re
+
+        for rel in ("lib/teacher.aura", "lib/rollout-workers.aura"):
+            text = (ROOT / rel).read_text(encoding="utf-8")
+            code = re.sub(r";[^\n]*", "", text)
+            self.assertNotIn("set-code", code, rel)
+            self.assertNotIn("mutate:rebind", code, rel)
+            self.assertNotIn("eval-current", code, rel)
+
     def test_twin_emits_hops_and_traj(self):
         cfg = json.loads((ROOT / "catalog" / "rewards" / "twin-step.json").read_text())
         hops, traj = RO.rollout_twin(cfg, depth=3, forks=4, plant="mass-spring")
@@ -134,6 +155,15 @@ class AuraHost(unittest.TestCase):
         self.assertNotIn("fiber:spawn", blob)
         self.assertNotIn('"restore"', blob)
         self.assertNotIn('"skip"', blob)
+
+    def test_agent_ask_proposer_smoke(self):
+        cfg = json.loads((ROOT / "catalog" / "rewards" / "twin-step.json").read_text())
+        cfg = dict(cfg)
+        cfg["proposers"] = "agent-ask"
+        hops, traj = RO.rollout_twin_aura(cfg, depth=1, forks=2, plant="mass-spring")
+        self.assertTrue(hops)
+        self.assertTrue(any(h.get("proposer") == "agent:ask" for h in hops))
+        self.assertTrue(all(h["target"][-1].get("summary") != "not-in-catalog" for h in hops))
 
 
 if __name__ == "__main__":
