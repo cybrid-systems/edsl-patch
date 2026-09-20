@@ -23,8 +23,9 @@ ROOT = Path(__file__).resolve().parents[1]
 PARENT = ROOT.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from apply import apply_patch
+from apply import apply_patch, pick_bin, pick_lib
 from edsl_patch import PatchError, validate_patch
+from farm_budget import resolve
 from parse_aura import extract_defines, patch_for
 
 DEFAULT_REPOS = (
@@ -198,24 +199,56 @@ def to_sample(cand: dict) -> dict:
     }
 
 
+def doctor(*, parent: Path = PARENT, globs: list[str] | None = None, cursor: Path = CURSOR_PATH) -> int:
+    """Print layout diagnosis. Never writes jsonl. Always exit 0."""
+    globs = globs or list(DEFAULT_GLOBS)
+    try:
+        bin_path = pick_bin()
+        print(f"doctor: aura-bin found {bin_path}")
+    except SystemExit:
+        print("doctor: aura-bin missing")
+    try:
+        lib = pick_lib()
+        print(f"doctor: aura-lib found {lib}")
+    except SystemExit:
+        print("doctor: aura-lib missing")
+    for pattern in globs:
+        n = len(list(parent.glob(pattern)))
+        print(f"doctor: glob {pattern} matches={n}")
+    for name in DEFAULT_REPOS:
+        repo = parent / name
+        print(f"doctor: sibling {name} git={'yes' if git_ok(repo) else 'no'}")
+    seen = 0
+    if cursor.is_file():
+        try:
+            seen = len(load_cursor(cursor).get("seen") or [])
+        except json.JSONDecodeError:
+            seen = 0
+    print(f"doctor: cursor {cursor} seen={seen}")
+    return 0
+
+
 def verify_candidates(
     cands: list[dict],
     *,
     timeout: int,
     out: Path | None = None,
     seen: set[str] | None = None,
-) -> list[dict]:
+) -> tuple[list[dict], dict[str, int]]:
     kept = []
     n = len(cands)
     seen = seen if seen is not None else set()
+    counters = {"skip-seen": 0, "skip-illegal": 0, "skip-apply": 0, "keep": 0}
     for i, cand in enumerate(cands, 1):
         label = f"{cand.get('repo')}:{cand.get('name')}"
         if cand.get("id") in seen:
+            counters["skip-seen"] += 1
             print(f"collect: {i}/{n} skip-seen {label}", flush=True)
             continue
         try:
             sample = to_sample(cand)
         except PatchError:
+            counters["skip-illegal"] += 1
             print(f"collect: {i}/{n} skip-illegal {label}", flush=True)
             continue
         extra = sample.pop("_extra_path", None)
@@ -227,20 +260,23 @@ def verify_candidates(
                 extra_path=extra,
             )
         except (PatchError, subprocess.TimeoutExpired, OSError) as e:
+            counters["skip-apply"] += 1
             print(f"collect: {i}/{n} skip-apply {label} {e}", flush=True)
             continue
         if not result.get("ok"):
-            print(f"collect: {i}/{n} skip-ok {label}", flush=True)
+            counters["skip-apply"] += 1
+            print(f"collect: {i}/{n} skip-apply {label}", flush=True)
             continue
         sample["verify"] = {
             "apply_ok": True,
             "expected_source": result.get("source") or "",
         }
         kept.append(sample)
+        counters["keep"] += 1
         if out is not None:
             append_jsonl(out, [sample], seen)
         print(f"collect: {i}/{n} keep {label}", flush=True)
-    return kept
+    return kept, counters
 
 
 def append_jsonl(path: Path, rows: list[dict], seen: set[str]) -> int:
@@ -260,9 +296,15 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--out", type=Path, default=OUT_PATH)
     p.add_argument("--cursor", type=Path, default=CURSOR_PATH)
-    p.add_argument("--limit", type=int, default=0, help="max git candidates before apply")
+    p.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="max git candidates before apply (default: budget collect_limit, smoke=5)",
+    )
     p.add_argument("--timeout", type=int, default=15)
     p.add_argument("--identity", action="store_true", help="also emit identity rebinds of live files")
+    p.add_argument("--doctor", action="store_true", help="print sibling/aura diagnosis; no jsonl")
     p.add_argument(
         "--glob",
         action="append",
@@ -270,6 +312,9 @@ def main(argv: list[str] | None = None) -> int:
         help="repeatable glob under grok-dev parent (default: span libs + kv)",
     )
     args = p.parse_args(argv)
+
+    if args.doctor:
+        return doctor(globs=args.globs)
 
     cursor = load_cursor(args.cursor)
     seen = set(cursor.get("seen") or [])
@@ -282,7 +327,10 @@ def main(argv: list[str] | None = None) -> int:
             except (json.JSONDecodeError, KeyError):
                 continue
     globs = args.globs or list(DEFAULT_GLOBS)
-    limit = args.limit or None
+    if args.limit is None:
+        limit = int(resolve()["collect_limit"])
+    else:
+        limit = args.limit if args.limit > 0 else None
 
     cands = harvest_git(parent=PARENT, globs=globs, cursor=cursor, limit=limit)
     live_paths = []
@@ -291,7 +339,7 @@ def main(argv: list[str] | None = None) -> int:
     cands.extend(harvest_live(live_paths, identity=args.identity))
 
     before = len(seen)
-    kept = verify_candidates(
+    kept, counters = verify_candidates(
         cands, timeout=args.timeout, out=args.out, seen=seen
     )
     added = len(seen) - before
@@ -299,7 +347,9 @@ def main(argv: list[str] | None = None) -> int:
     save_cursor(args.cursor, cursor)
     print(
         f"collect: candidates={len(cands)} verified={len(kept)} "
-        f"appended={added} total_seen={len(seen)} -> {args.out}"
+        f"appended={added} total_seen={len(seen)} "
+        f"skip-seen={counters['skip-seen']} skip-illegal={counters['skip-illegal']} "
+        f"skip-apply={counters['skip-apply']} keep={counters['keep']} -> {args.out}"
     )
     return 0 if kept or added or seen else 1
 

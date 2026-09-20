@@ -63,7 +63,8 @@ python3 -m unittest discover -s tests -v
 
 python3 scripts/ingest.py                  # cartesian catalog → data/raw/verified.jsonl
 python3 scripts/teach.py                   # teacher lessons + multi-agent variants
-python3 scripts/collect.py                 # real Unify KV / span git rebinds (incremental)
+python3 scripts/collect.py --doctor        # sibling + Aura layout (no jsonl)
+python3 scripts/collect.py --limit 5       # real Unify KV / span git rebinds (cap before apply)
 python3 scripts/farm.py --rounds 24        # star-mode control transforms → data/raw/farm.jsonl
 python3 scripts/export_sft.py data/raw/business.jsonl data/raw/teacher.jsonl data/raw/verified.jsonl data/raw/farm.jsonl
 ```

@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from apply import apply_patch, pick_bin
+from collect import doctor
 from parse_aura import extract_defines, patch_for
 
 
@@ -35,6 +36,25 @@ class CollectShapeTests(unittest.TestCase):
     def test_old_empty_extract(self):
         defs = extract_defines(OLD)
         self.assertEqual(defs["kv:empty?"], "(lambda (store) (= (kv:size store) 0))")
+
+    def test_doctor_no_jsonl_exit_0(self):
+        import contextlib
+        import io
+        from pathlib import Path as P
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = doctor(
+                parent=P("/tmp"),
+                globs=["no-such/*.aura"],
+                cursor=P("/tmp/edsl-no-cursor.json"),
+            )
+        self.assertEqual(rc, 0)
+        text = buf.getvalue()
+        self.assertIn("doctor: aura-bin", text)
+        self.assertIn("doctor: glob no-such/*.aura matches=", text)
+        self.assertIn("doctor: sibling unify git=", text)
+        self.assertNotIn("collect: keep", text)
 
 
 @unittest.skipUnless(aura_available(), "Aura binary not found")
