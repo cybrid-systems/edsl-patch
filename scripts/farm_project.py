@@ -91,7 +91,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    unused = unused[: args.max_attempts]
+    batch = min(int(args.max_attempts), int(target) + 40)
+    unused = unused[:batch]
     t0 = time.monotonic()
     try:
         stdout = run_aura(

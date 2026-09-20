@@ -45,6 +45,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--max-loop", type=int, default=None, help="wish; clamped to preset")
     p.add_argument("--wall-seconds", type=int, default=None)
     p.add_argument("--max-catalog-edits", type=int, default=None)
+    p.add_argument("--max-attempts", type=int, default=None)
     args = p.parse_args(argv)
 
     if args.project not in known:
@@ -96,7 +97,9 @@ def main(argv: list[str] | None = None) -> int:
             "--budget",
             str(bud["preset"]),
             "--timeout",
-            str(max(30, wall)),
+            str(args.max_attempts and 90 or min(90, max(30, wall))),
+            "--max-attempts",
+            str(args.max_attempts or min(60, int(target) + 20)),
         ]
         rc = farm_project_main(fp_argv)
         # farm_project prints FARM_PROJECT; re-run capture via subprocess if needed

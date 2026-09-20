@@ -6,3 +6,11 @@
 {"id": "helper-mod.const-h", "project": "helper-mod", "name": "h", "body": "(lambda (x) 0)", "summary": "const-helper", "arity": 1}
 {"id": "helper-mod.eta-h", "project": "helper-mod", "name": "h", "body": "(lambda (x) (* x 1))", "summary": "eta-helper", "arity": 1}
 {"id": "helper-mod.neg-h", "project": "helper-mod", "name": "h", "body": "(lambda (x) (* x -1))", "summary": "inline-helper", "arity": 1}
+{"id": "helper-mod.plus2p", "project": "helper-mod", "name": "f", "body": "(lambda (x) (+ x 2))", "summary": "plus2-public", "arity": 1}
+{"id": "helper-mod.negp", "project": "helper-mod", "name": "f", "body": "(lambda (x) (* x -1))", "summary": "neg-public", "arity": 1}
+{"id": "helper-mod.sqp", "project": "helper-mod", "name": "f", "body": "(lambda (x) (* x x))", "summary": "sq-public", "arity": 1}
+{"id": "helper-mod.clp", "project": "helper-mod", "name": "f", "body": "(lambda (x) (if (< x 0) 0 x))", "summary": "clamp-public", "arity": 1}
+{"id": "helper-mod.idh2", "project": "helper-mod", "name": "f", "body": "(lambda (x) (+ x 0))", "summary": "id-helper2", "arity": 1}
+{"id": "helper-mod.c2", "project": "helper-mod", "name": "f", "body": "(lambda (x) 1)", "summary": "const1-helper", "arity": 1}
+{"id": "helper-mod.dblh", "project": "helper-mod", "name": "f", "body": "(lambda (x) (* x 2))", "summary": "dbl-helper", "arity": 1}
+{"id": "helper-mod.absh", "project": "helper-mod", "name": "f", "body": "(lambda (x) (if (< x 0) (* x -1) x))", "summary": "abs-helper", "arity": 1}

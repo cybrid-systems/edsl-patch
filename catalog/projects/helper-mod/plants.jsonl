@@ -3,3 +3,27 @@
 {"id": "helper-mod.p2", "source": "(define pad (lambda (x) 0))\n(define f (lambda (x) x))", "names": ["f"], "project": "helper-mod"}
 {"id": "helper-mod.p3", "source": "(define pad (lambda (x) 0))\n(define g (lambda (x) (pad x)))", "names": ["g"], "project": "helper-mod"}
 {"id": "helper-mod.p4", "source": "(define h (lambda (x) (* x 1)))\n(define f (lambda (x) (+ x 0)))", "names": ["f"], "project": "helper-mod"}
+{"id": "helper-mod.px0", "source": "(define h0 (lambda (x) x))\n(define f0 (lambda (x) (h0 x)))", "names": ["f0"], "project": "helper-mod"}
+{"id": "helper-mod.hx0", "source": "(define h0 (lambda (x) x))\n(define f0 (lambda (x) (h0 x)))", "names": ["h0"], "project": "helper-mod"}
+{"id": "helper-mod.px1", "source": "(define h1 (lambda (x) x))\n(define f1 (lambda (x) (h1 x)))", "names": ["f1"], "project": "helper-mod"}
+{"id": "helper-mod.hx1", "source": "(define h1 (lambda (x) x))\n(define f1 (lambda (x) (h1 x)))", "names": ["h1"], "project": "helper-mod"}
+{"id": "helper-mod.px2", "source": "(define h2 (lambda (x) x))\n(define f2 (lambda (x) (h2 x)))", "names": ["f2"], "project": "helper-mod"}
+{"id": "helper-mod.hx2", "source": "(define h2 (lambda (x) x))\n(define f2 (lambda (x) (h2 x)))", "names": ["h2"], "project": "helper-mod"}
+{"id": "helper-mod.px3", "source": "(define h3 (lambda (x) x))\n(define f3 (lambda (x) (h3 x)))", "names": ["f3"], "project": "helper-mod"}
+{"id": "helper-mod.hx3", "source": "(define h3 (lambda (x) x))\n(define f3 (lambda (x) (h3 x)))", "names": ["h3"], "project": "helper-mod"}
+{"id": "helper-mod.px4", "source": "(define h4 (lambda (x) x))\n(define f4 (lambda (x) (h4 x)))", "names": ["f4"], "project": "helper-mod"}
+{"id": "helper-mod.hx4", "source": "(define h4 (lambda (x) x))\n(define f4 (lambda (x) (h4 x)))", "names": ["h4"], "project": "helper-mod"}
+{"id": "helper-mod.px5", "source": "(define h5 (lambda (x) x))\n(define f5 (lambda (x) (h5 x)))", "names": ["f5"], "project": "helper-mod"}
+{"id": "helper-mod.hx5", "source": "(define h5 (lambda (x) x))\n(define f5 (lambda (x) (h5 x)))", "names": ["h5"], "project": "helper-mod"}
+{"id": "helper-mod.px6", "source": "(define h6 (lambda (x) x))\n(define f6 (lambda (x) (h6 x)))", "names": ["f6"], "project": "helper-mod"}
+{"id": "helper-mod.hx6", "source": "(define h6 (lambda (x) x))\n(define f6 (lambda (x) (h6 x)))", "names": ["h6"], "project": "helper-mod"}
+{"id": "helper-mod.px7", "source": "(define h7 (lambda (x) x))\n(define f7 (lambda (x) (h7 x)))", "names": ["f7"], "project": "helper-mod"}
+{"id": "helper-mod.hx7", "source": "(define h7 (lambda (x) x))\n(define f7 (lambda (x) (h7 x)))", "names": ["h7"], "project": "helper-mod"}
+{"id": "helper-mod.px8", "source": "(define h8 (lambda (x) x))\n(define f8 (lambda (x) (h8 x)))", "names": ["f8"], "project": "helper-mod"}
+{"id": "helper-mod.hx8", "source": "(define h8 (lambda (x) x))\n(define f8 (lambda (x) (h8 x)))", "names": ["h8"], "project": "helper-mod"}
+{"id": "helper-mod.px9", "source": "(define h9 (lambda (x) x))\n(define f9 (lambda (x) (h9 x)))", "names": ["f9"], "project": "helper-mod"}
+{"id": "helper-mod.hx9", "source": "(define h9 (lambda (x) x))\n(define f9 (lambda (x) (h9 x)))", "names": ["h9"], "project": "helper-mod"}
+{"id": "helper-mod.px10", "source": "(define h10 (lambda (x) x))\n(define f10 (lambda (x) (h10 x)))", "names": ["f10"], "project": "helper-mod"}
+{"id": "helper-mod.hx10", "source": "(define h10 (lambda (x) x))\n(define f10 (lambda (x) (h10 x)))", "names": ["h10"], "project": "helper-mod"}
+{"id": "helper-mod.px11", "source": "(define h11 (lambda (x) x))\n(define f11 (lambda (x) (h11 x)))", "names": ["f11"], "project": "helper-mod"}
+{"id": "helper-mod.hx11", "source": "(define h11 (lambda (x) x))\n(define f11 (lambda (x) (h11 x)))", "names": ["h11"], "project": "helper-mod"}
