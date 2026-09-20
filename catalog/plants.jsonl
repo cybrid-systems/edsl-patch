@@ -1,0 +1,6 @@
+{"id":"id-f","source":"(define f (lambda (x) x))","names":["f"]}
+{"id":"plus1-g","source":"(define g (lambda (x) (+ x 1)))","names":["g"]}
+{"id":"pad-f","source":"(define pad (lambda (x) x))\n(define f (lambda (x) (pad x)))","names":["f"]}
+{"id":"sugar-f","source":"(define (f x) x)","names":["f"]}
+{"id":"two-def","source":"(define helper (lambda (x) x))\n(define f (lambda (x) x))","names":["f"]}
+{"id":"flip-abs","source":"(define f (lambda (x) (if (< x 0) x (* x -1))))","names":["f"]}

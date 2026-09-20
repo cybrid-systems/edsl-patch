@@ -1,0 +1,8 @@
+{"id":"plus1","name":"f","body":"(lambda (x) (+ x 1))","summary":"plus1"}
+{"id":"plus2","name":"f","body":"(lambda (x) (+ x 2))","summary":"plus2"}
+{"id":"negate","name":"f","body":"(lambda (x) (* x -1))","summary":"negate"}
+{"id":"double","name":"f","body":"(lambda (x) (* x 2))","summary":"double"}
+{"id":"abs","name":"f","body":"(lambda (x) (if (< x 0) (* x -1) x))","summary":"abs"}
+{"id":"id","name":"f","body":"(lambda (x) x)","summary":"id"}
+{"id":"square","name":"f","body":"(lambda (x) (* x x))","summary":"square"}
+{"id":"zero","name":"f","body":"(lambda (x) 0)","summary":"zero"}
