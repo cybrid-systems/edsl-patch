@@ -33,6 +33,14 @@ python3 scripts/apply.py --sample examples/identity-to-abs.jsonl
 
 Query payloads do not include raw node ids. Verify uses: query `ok`, `find` not empty for the rebind name, post-source matches expected (whitespace-tolerant).
 
+## Probes (v1.5)
+
+After a successful **rebind**, the host may run world probes instead of (or in addition to) `expected_source`:
+
+- **twin**: `N` steps of `(step world (control world))`; `t` monotonic; optional `energy_after_steps_lt`; frozen names unchanged.
+- **session**: `*session*` id/fd/alive unchanged; `(quote book)` returns numbers.
+- **refuse**: do **not** `mutate:rebind`; source/world identical; `apply_ok` true.
+
 ## Keep / drop
 
 Keep a sample when:

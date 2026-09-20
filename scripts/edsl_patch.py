@@ -8,6 +8,8 @@ from typing import Any
 
 QUERY_OPS = ("find", "def-use", "root")
 SYNTHESIS_OPS = ("rebind", "fill")
+REFUSE_OPS = ("frozen", "capability", "schema")
+REFUSE_FIELDS = ("kind", "op", "name", "why")
 
 QUERY_FIELDS = {
     "find": ("kind", "op", "name"),
@@ -23,16 +25,18 @@ ILLEGAL_HINTS = (
     "eval",
     "synthesize:define",
     "fiber:spawn",
+    "c-load",
     "<think>",
     "```",
 )
 
 SYSTEM_CONTRACT = """You emit Aura EDSL patches as a JSON array. No markdown, no <think>.
-Sequence: one or more query ops, then exactly one synthesis op.
+Sequence: one or more query ops, then exactly one completion: synthesis rebind OR refuse.
 Query ops: find (name), def-use (name), root. Name-based only; never node ids.
-Synthesis ops: rebind (name, body, summary) or fill (template, args).
+Synthesis: rebind (name, body, summary) with name in observe.hot, never in observe.frozen.
+Refuse: {"kind":"refuse","op":"frozen|capability|schema","name":"…","why":"…"}.
 rebind.body is one (lambda …) form. Two-arm if when if is used. No extra define.
-Illegal: eval, extra defines, shell, fiber:spawn, synthesize:define, skip, persist, restore, yield.
+Illegal: eval, c-load, extra defines, fiber:spawn, synthesize:define, skip, persist, restore, yield.
 """
 
 
@@ -87,7 +91,7 @@ def _check_body(body: Any, where: str) -> None:
             raise PatchError(f"{where}: illegal token {hint!r}")
 
 
-def validate_patch(patch: Any) -> list[dict[str, Any]]:
+def validate_patch(patch: Any, observe: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     if not isinstance(patch, list) or not patch:
         raise PatchError("patch must be a non-empty JSON array")
     kinds = []
@@ -117,24 +121,40 @@ def validate_patch(patch: Any) -> list[dict[str, Any]]:
                 args = step["args"]
                 if not isinstance(args, list) or not all(isinstance(a, str) for a in args):
                     raise PatchError(f"step {i}: args must be a list of strings")
+        elif kind == "refuse":
+            if op not in REFUSE_OPS:
+                raise PatchError(f"step {i}: illegal refuse op {op!r}")
+            _require_keys(step, REFUSE_FIELDS, f"step {i}")
+            _check_name(step["name"], f"step {i}")
+            if not isinstance(step["why"], str) or not step["why"].strip():
+                raise PatchError(f"step {i}: why must be a non-empty string")
         else:
             raise PatchError(f"step {i}: illegal kind {kind!r}")
         kinds.append(kind)
-    if kinds[-1] != "synthesis":
-        raise PatchError("last step must be synthesis")
-    if kinds.count("synthesis") != 1:
-        raise PatchError("exactly one synthesis step")
     if "query" not in kinds:
         raise PatchError("at least one query step")
+    n_syn = kinds.count("synthesis")
+    n_ref = kinds.count("refuse")
+    if n_syn + n_ref != 1:
+        raise PatchError("exactly one synthesis or refuse completion")
+    if kinds[-1] not in ("synthesis", "refuse"):
+        raise PatchError("last step must be synthesis or refuse")
     if any(k != "query" for k in kinds[:-1]):
-        raise PatchError("all steps before synthesis must be query")
-    synth = patch[-1]
-    if synth["op"] == "rebind":
+        raise PatchError("all steps before completion must be query")
+    last = patch[-1]
+    if last["kind"] == "synthesis" and last["op"] == "rebind":
         finds = [
-            s for s in patch[:-1] if s.get("op") == "find" and s.get("name") == synth["name"]
+            s for s in patch[:-1] if s.get("op") == "find" and s.get("name") == last["name"]
         ]
         if not finds:
             raise PatchError("rebind requires a prior find of the same name")
+        if observe:
+            frozen = list(observe.get("frozen") or [])
+            hot = observe.get("hot")
+            if last["name"] in frozen:
+                raise PatchError(f"rebind of frozen name {last['name']!r}")
+            if isinstance(hot, list) and last["name"] not in hot:
+                raise PatchError(f"rebind name {last['name']!r} not in observe.hot")
     return patch
 
 
@@ -155,7 +175,10 @@ def load_sample(obj: dict[str, Any] | str | Path) -> dict[str, Any]:
     source = obj.get("input", {}).get("source") if isinstance(obj.get("input"), dict) else None
     if not isinstance(source, str) or not source.strip():
         raise PatchError("sample.input.source must be a non-empty string")
-    target = validate_patch(obj.get("target"))
+    observe = obj.get("input", {}).get("observe") if isinstance(obj.get("input"), dict) else None
+    if observe is not None and not isinstance(observe, dict):
+        observe = None
+    target = validate_patch(obj.get("target"), observe=observe)
     return obj | {"input": {"source": source}, "target": target}
 
 

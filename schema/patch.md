@@ -4,6 +4,8 @@ One model output = one JSON **array**. No markdown, no `<think>` in the trained 
 
 v1 sequence: **≥1 query, then exactly one synthesis**. Query never mutates. Synthesis is the only mutate.
 
+v1.5 also allows **refuse** as the completion (not synthesis): query then `{"kind":"refuse",...}`. Apply is a no-op. `verify.apply_ok` is true when the refuse is correct (world unchanged).
+
 ```json
 [
   {"kind": "query", "op": "find", "name": "f"},
@@ -28,7 +30,7 @@ Compile to host:
 
 ## Sequence rules
 
-1. First ops are `kind: query`. Last op is `kind: synthesis`. No other kinds.
+1. First ops are `kind: query`. Last step is `kind: synthesis` **or** `kind: refuse`. No other kinds.
 2. Query args are **name-based**. Never emit raw node ids (unstable across host runs). Query *results* belong in apply `observe`, not in the target.
 3. `rebind.body` is one `(lambda …)` form. Two-arm `if` when `if` is used. No extra top-level `define`.
 4. Extra JSON keys are illegal.
@@ -57,6 +59,30 @@ Deferred (need stable-ref): `:children`, `:parent`, `:node`.
 `rebind` is the default. `fill` is allowed only if that template is already registered in the apply session. v1 goldens use `rebind` only.
 
 Apply uses the primitive directly. Do **not** route through `agent:decide` / `edsl-fix` (those can skip or rollback a valid labeled patch). Do **not** emit `synthesize:define` (nested LLM).
+
+When `input.observe.hot` / `frozen` are present, a legal `rebind.name` must be in `hot` and must not be in `frozen`. Rebind of a frozen name is not gold — emit **refuse**.
+
+## Legal `refuse` completion (v1.5)
+
+```json
+{"kind": "refuse", "op": "frozen|capability|schema", "name": "step", "why": "integrator is frozen"}
+```
+
+| `op` | When |
+|------|------|
+| `frozen` | asked name ∈ `observe.frozen` |
+| `capability` | body would need `eval` / `c-load` / `fiber:spawn` / `synthesize:define` |
+| `schema` | extra define, bad lambda, extra keys |
+
+Apply does **not** call `mutate:rebind`. Source and world stay identical.
+
+## Illegal as gold
+
+- `rebind` whose `name` ∈ `frozen`
+- `rebind` body containing `eval`, extra top-level `define`, `fiber:spawn`, `synthesize:define`, `c-load`
+- `skip` / `persist` / `restore` / `yield` / `heal`
+
+FIXME: `examples/illegal-eval.jsonl` is still a poison **synthesis** target (`apply_ok=false`). Do not export it as SFT. A refuse gold replaces it in a later issue (#28). Leave the file pinned for current legal tests.
 
 ## Illegal
 

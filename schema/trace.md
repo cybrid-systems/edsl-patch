@@ -34,6 +34,8 @@ One jsonl line = one closed-loop round (Strand) or one Unify cycle.
 
 This file is the **legacy Strand/Unify control-trace** shape. v1 training targets are query→synthesis sequences (`schema/patch.md`, `schema/sample.md`), not `skip` / `persist` / `restore`.
 
+Strand fitness traces stay legacy. Do **not** ingest a poison-commit (fitness drop labeled `commit`) as refuse gold — refuse is for frozen/capability/schema, not rollback.
+
 `label` on these traces is a control-policy decision, not the host's raw `decision`. Strand's host often says `commit` on a worse body; the label is still `restore`. Poison-commit rounds are **not** positive synthesis labels.
 
 Ingest (`scripts/ingest.py`):

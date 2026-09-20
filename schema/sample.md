@@ -32,6 +32,40 @@ At train time the prompt is `input.source` plus the legal-op contract. The compl
 
 `verify` stays in working jsonl. `scripts/export_sft.py` strips it.
 
+## v1.5 observe + probes
+
+Commercial verticals add a world observation and optional probes. `expected_source` is **optional** when `probes` is present.
+
+```json
+{
+  "id": "twin-A1-damp",
+  "input": {
+    "source": "(define (step w u) w)\n(define (control w) 0)",
+    "intent": "oscillation too large; add damping",
+    "observe": {
+      "t": 40,
+      "energy": 12.4,
+      "session": {"id": 1, "fd": 7, "alive": true},
+      "hot": ["control"],
+      "frozen": ["step"],
+      "epoch": 3
+    }
+  },
+  "target": [],
+  "verify": {
+    "apply_ok": true,
+    "unchanged": ["step"],
+    "expected_source": null,
+    "probes": {"t_mono": true, "energy_after_steps_lt": 8.0}
+  }
+}
+```
+
+- `observe.session` may be omitted on twin samples.
+- `observe.t` / `energy` may be omitted on session samples.
+- `target` is still a patch array (query + rebind **or** query + refuse), never empty in gold SFT.
+- `sft: false` marks apply_ok=false fixtures that must not export.
+
 ## Ingest sources
 
 - Hand goldens in `examples/`
