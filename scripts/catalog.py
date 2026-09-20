@@ -90,6 +90,8 @@ def project_pairs(plants: list[dict], rewrites: list[dict]) -> list[tuple[dict, 
         for name in p.get("names") or []:
             plant_ar = lambda_arity(defs.get(name) or "")
             for rw in rewrites:
+                if rw.get("keep") is False:
+                    continue
                 r = retarget(rw, name)
                 rw_ar = int(rw.get("arity") or lambda_arity(rw.get("body") or ""))
                 if plant_ar >= 0 and rw_ar >= 0 and plant_ar != rw_ar:
@@ -160,6 +162,20 @@ def check_project(pid: str, plants: list[dict], rewrites: list[dict]) -> list[st
             errs.append(f"{pid}:{p.get('id')} missing names")
         if not src.strip():
             errs.append(f"{pid}:{p.get('id')} empty source")
+    if pid == "session-hot":
+        for rw in rewrites:
+            if rw.get("keep") is False:
+                errs.append(f"{pid}:{rw.get('id')} keep=false must live in rewrites.neg.jsonl")
+        neg = PROJECTS_ROOT / pid / "rewrites.neg.jsonl"
+        if neg.is_file():
+            for line in neg.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                nr = json.loads(line)
+                if nr.get("keep") is not False:
+                    errs.append(f"{pid}:neg {nr.get('id')} must have keep=false")
+                if nr.get("summary") == "kill-alive" and "alive" not in (nr.get("body") or ""):
+                    errs.append(f"{pid}: kill-alive body must mention alive")
     return errs
 
 

@@ -1,8 +1,8 @@
-{"id":"session-hot.flat-zero","project":"session-hot","name":"quote","body":"(lambda (book) 0)","summary":"flat-zero","arity":1}
-{"id":"session-hot.narrow-spread","project":"session-hot","name":"quote","body":"(lambda (book) 1)","summary":"narrow-spread","arity":1}
-{"id":"session-hot.widen","project":"session-hot","name":"quote","body":"(lambda (book) 9)","summary":"widen","arity":1}
-{"id":"session-hot.clip-abs","project":"session-hot","name":"quote","body":"(lambda (book) (let ((q (hash-ref book \"mid\"))) (if (< q -2) -2 (if (< 2 q) 2 q))))","summary":"clip-abs","arity":1}
-{"id":"session-hot.sign-book","project":"session-hot","name":"quote","body":"(lambda (book) (if (< (hash-ref book \"mid\") 0) -1 1))","summary":"sign-book","arity":1}
-{"id":"session-hot.hold-mid","project":"session-hot","name":"quote","body":"(lambda (book) (hash-ref book \"mid\"))","summary":"hold-mid","arity":1}
-{"id":"session-hot.skew-bid","project":"session-hot","name":"quote","body":"(lambda (book) (hash-ref book \"bid\"))","summary":"skew-bid","arity":1}
-{"id":"session-hot.dead-man-zero","project":"session-hot","name":"quote","body":"(lambda (book) (if (number? (hash-ref book \"mid\")) (hash-ref book \"mid\") 0))","summary":"dead-man-zero","arity":1}
+{"id":"session-hot.flat-zero","project":"session-hot","name":"tick","body":"(lambda (book sess) (hash \"q\" 0 \"sess\" sess))","summary":"flat-zero","arity":2,"keep":true}
+{"id":"session-hot.clip-abs","project":"session-hot","name":"tick","body":"(lambda (book sess) (let ((q (if (number? (hash-ref book \"mid\")) (hash-ref book \"mid\") 0))) (hash \"q\" (if (< q -2) -2 (if (< 2 q) 2 q)) \"sess\" sess)))","summary":"clip-abs","arity":2,"keep":true}
+{"id":"session-hot.narrow","project":"session-hot","name":"tick","body":"(lambda (book sess) (hash \"q\" 1 \"sess\" sess))","summary":"narrow","arity":2,"keep":true}
+{"id":"session-hot.seq-inc","project":"session-hot","name":"tick","body":"(lambda (book sess) (hash \"q\" 0 \"sess\" (hash \"id\" (hash-ref sess \"id\") \"fd\" (hash-ref sess \"fd\") \"alive\" (hash-ref sess \"alive\") \"seq\" (+ (if (number? (hash-ref sess \"seq\")) (hash-ref sess \"seq\") 0) 1))))","summary":"seq-inc","arity":2,"keep":true}
+{"id":"session-hot.hold-mid","project":"session-hot","name":"tick","body":"(lambda (book sess) (hash \"q\" (if (number? (hash-ref book \"mid\")) (hash-ref book \"mid\") 0) \"sess\" sess))","summary":"hold-mid","arity":2,"keep":true}
+{"id":"session-hot.skew-bid","project":"session-hot","name":"tick","body":"(lambda (book sess) (hash \"q\" (if (number? (hash-ref book \"bid\")) (hash-ref book \"bid\") 0) \"sess\" sess))","summary":"skew-bid","arity":2,"keep":true}
+{"id":"session-hot.dead-man-zero","project":"session-hot","name":"tick","body":"(lambda (book sess) (hash \"q\" (if (number? (hash-ref book \"mid\")) (hash-ref book \"mid\") 0) \"sess\" sess))","summary":"dead-man-zero","arity":2,"keep":true}
+{"id":"session-hot.sign-book","project":"session-hot","name":"tick","body":"(lambda (book sess) (hash \"q\" (if (< (if (number? (hash-ref book \"mid\")) (hash-ref book \"mid\") 0) 0) -1 1) \"sess\" sess))","summary":"sign-book","arity":2,"keep":true}
