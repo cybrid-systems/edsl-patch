@@ -113,6 +113,58 @@ class WorldKeepTests(unittest.TestCase):
         self.assertNotIn("*qf*", sess_src)
 
 
+class PathDecideTests(unittest.TestCase):
+    def test_worsening_emits_refuse_label(self):
+        from farm import path_decide, path_intent_twin
+
+        keep = path_decide(
+            {"t": 40, "energy": 50.0},
+            {"t": 80, "energy": 5.0, "ok": True},
+            "twin",
+            name="control",
+            frozen=["step"],
+        )
+        self.assertEqual(keep, "keep")
+        worsen = path_decide(
+            {"t": 40, "energy": 5.0},
+            {"t": 80, "energy": 9.0, "ok": True},
+            "twin",
+            name="control",
+            frozen=["step"],
+        )
+        self.assertEqual(worsen, "worsen")
+        nxt = path_decide(
+            {"t": 80, "energy": 9.0},
+            {"t": 120, "energy": 8.0, "ok": True},
+            "twin",
+            last="worsen",
+            name="control",
+            frozen=["step"],
+        )
+        self.assertEqual(nxt, "refuse")
+        intent = path_intent_twin({"t": 80, "energy": 9.1}, {"energy": 5.0}, refuse=True)
+        self.assertIn("5.0", intent)
+        self.assertIn("9.1", intent)
+        self.assertIn("energy rose", intent)
+        self.assertIn("do not mutate", intent)
+        improve = path_intent_twin({"t": 40, "energy": 17.5})
+        self.assertEqual(improve, "energy=17.5 at t=40; reduce energy")
+        self.assertNotIn("12.4", improve)
+
+    def test_path_emit_has_no_restore_skip(self):
+        from farm import emit_path_twin_driver, path_chain
+        from catalog import load_project
+
+        plants, rewrites = load_project("twin-step")
+        chain = path_chain(plants[0], rewrites, 4, "twin")
+        src = emit_path_twin_driver(plants[0], chain)
+        self.assertIn("PATH_OBS", src)
+        self.assertNotIn("12.4", src)
+        self.assertNotIn("fiber:spawn", src)
+        for tok in ("skip", "persist", "restore", "yield"):
+            self.assertNotIn(f" {tok}", src)
+
+
 class FarmLegalTests(unittest.TestCase):
     def test_help_documents_path_mode(self):
         import farm as farm_mod
@@ -268,6 +320,55 @@ class FarmHostTests(unittest.TestCase):
                 if "sat-plant" in (r.get("id") or "")
             }
             self.assertNotIn("sign-damp", sat_sums)
+
+    def test_path_twin_measured_observe_and_refuse(self):
+        import farm as farm_mod
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "farm-path.jsonl"
+            refuse = Path(tmp) / "refuse.jsonl"
+            rc = farm_mod.main(
+                [
+                    "--mode",
+                    "path",
+                    "--project",
+                    "twin-step",
+                    "--depth",
+                    "4",
+                    "--rounds",
+                    "4",
+                    "--timeout",
+                    "90",
+                    "--out",
+                    str(out),
+                    "--refuse-out",
+                    str(refuse),
+                ]
+            )
+            self.assertIn(rc, (0, 1))
+            rows = []
+            if out.is_file():
+                rows = [json.loads(l) for l in out.read_text().splitlines() if l.strip()]
+            self.assertGreaterEqual(len(rows), 1)
+            blob = json.dumps(rows)
+            self.assertNotIn('"skip"', blob)
+            self.assertNotIn('"restore"', blob)
+            self.assertNotIn('"yield"', blob)
+            hops = [r for r in rows if (r.get("target") or [{}])[-1].get("kind") == "synthesis"]
+            refuses = [r for r in rows if (r.get("target") or [{}])[-1].get("kind") == "refuse"]
+            self.assertGreaterEqual(len(hops) + len(refuses), 1)
+            if hops:
+                t = hops[0]["input"]["observe"]["t"]
+                self.assertEqual(t, 40)
+                self.assertNotEqual(hops[0]["input"]["observe"].get("energy"), 12.4)
+            self.assertTrue(refuses or (refuse.is_file() and refuse.stat().st_size > 0))
+            for r in refuses:
+                self.assertTrue(r.get("sft", True))
+                intent = r["input"]["intent"]
+                self.assertTrue(
+                    "do not mutate" in intent or "energy rose" in intent,
+                    intent,
+                )
 
     def test_missing_name_is_observe_not_sample(self):
         driver = """

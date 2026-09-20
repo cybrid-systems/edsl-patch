@@ -63,8 +63,12 @@ Commercial verticals add a world observation and optional probes. `expected_sour
 
 - `observe.session` may be omitted on twin samples.
 - `observe.t` / `energy` may be omitted on session samples.
+- `observe.sat` is the saturation count when the plant world has a `sat` key.
+- `observe.epoch` is the path-chain hop index (1..depth). Replant only after depth or a probe cut, never mid-hop.
+- `observe.session.seq` is present when the session hash threads a sequence number.
 - `target` is still a patch array (query + rebind **or** query + refuse), never empty in gold SFT.
 - `sft: false` marks apply_ok=false fixtures that must not export.
+- Path-mode energy-up refuse golds are sft-true. Observe numbers come from the host, never a hardcoded `12.4` demo.
 
 ## Ingest sources
 

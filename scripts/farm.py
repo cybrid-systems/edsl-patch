@@ -25,7 +25,15 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from apply import apply_patch, pick_bin, pick_lib
-from catalog import load_plants, load_project, load_rewrites, pairs, project_pairs
+from catalog import (
+    PROJECTS_ROOT,
+    is_noop,
+    load_plants,
+    load_project,
+    load_rewrites,
+    pairs,
+    project_pairs,
+)
 from edsl_patch import (
     PatchError,
     aura_hash,
@@ -236,6 +244,125 @@ def _opt_num(v) -> float | None:
         return float(v)
     except (TypeError, ValueError):
         return None
+
+
+def path_intent_twin(obs: dict, prev: dict | None = None, *, refuse: bool = False) -> str:
+    """Intent templates with measured numbers — never a hardcoded 12.4 demo."""
+    t = obs.get("t")
+    e1 = obs.get("energy")
+    if refuse:
+        e0 = (prev or {}).get("energy", e1)
+        try:
+            if float(e1) >= float(e0):
+                return f"energy rose {e0}→{e1} at t={t}; do not mutate"
+        except (TypeError, ValueError):
+            pass
+        return f"energy={e1} at t={t}; do not mutate"
+    return f"energy={e1} at t={t}; reduce energy"
+
+
+def path_intent_session(obs: dict, *, refuse: bool = False) -> str:
+    sess = obs.get("session") or obs
+    if refuse:
+        return "alive still true but last q killed probe; refuse"
+    return (
+        f"session id={sess.get('id')} fd={sess.get('fd')} seq={sess.get('seq')}; narrow quote"
+    )
+
+
+def path_decide(
+    pre: dict,
+    post: dict | None,
+    vertical: str,
+    *,
+    last: str = "",
+    name: str = "control",
+    frozen: list[str] | None = None,
+    n_post: int = 40,
+    k: int = 8,
+    keep_flag: bool = True,
+) -> str:
+    """Path hop action: keep | worsen | refuse | cut.
+
+    Last hop energy-up / sat / seq-jump → this hop is refuse gold (no mutate).
+    Apply/t_break → cut. Keep-fail on identity/energy is worsen, not a positive.
+    """
+    if last == "worsen":
+        return "refuse"
+    if last in ("cut", "refuse"):
+        return "cut"
+    if not post or post.get("ok") is False:
+        return "cut"
+    frozen = list(frozen or [])
+    if vertical == "twin":
+        t0, t1 = pre.get("t"), post.get("t")
+        if t0 is None or t1 is None or int(t1) != int(t0) + int(n_post):
+            return "cut"
+        if twin_should_keep(
+            t0,
+            t1,
+            n_post,
+            pre.get("energy"),
+            post.get("energy"),
+            name,
+            frozen,
+            sat0=_opt_num(pre.get("sat")),
+            sat1=_opt_num(post.get("sat")),
+            x2_pre=_opt_num(pre.get("x2")),
+            x2_post=_opt_num(post.get("x2")),
+        ):
+            return "keep"
+        return "worsen"
+    pre_s = pre.get("session") or pre
+    post_s = post.get("session") or post
+    if session_should_keep(
+        pre_s,
+        post_s,
+        name,
+        keep_flag=keep_flag,
+        q_ok=post.get("okq", True) is not False,
+        k=k,
+    ):
+        return "keep"
+    return "worsen"
+
+
+def path_chain(plant: dict, rewrites: list[dict], depth: int, vertical: str) -> list[dict]:
+    """Catalog rebinds for a path. sign-damp / jump-seq sit early so smoke can worsen."""
+    prefer_twin = (
+        "clip-u",
+        "sign-damp",
+        "pd",
+        "damp-v",
+        "clip-then-pd",
+        "p-x",
+        "coast-if-small",
+        "pd-both",
+    )
+    prefer_sess = (
+        "clip-abs",
+        "jump-seq",
+        "narrow",
+        "seq-inc",
+        "hold-mid",
+        "flat-zero",
+        "skew-bid",
+        "sign-book",
+    )
+    prefer = prefer_twin if vertical == "twin" else prefer_sess
+    by_sum = {rw.get("summary"): rw for rw in rewrites}
+    name = "control" if vertical == "twin" else "tick"
+    chain: list[dict] = []
+    for summary in prefer:
+        rw = by_sum.get(summary)
+        if not rw:
+            continue
+        if is_noop(plant, rw, name):
+            continue
+        chain.append(rw)
+        if len(chain) >= depth:
+            break
+    return chain
 
 
 def read_jsonl(path: Path) -> list[dict]:
@@ -555,11 +682,413 @@ def run_world(args: argparse.Namespace) -> int:
     return 0 if keep else 1
 
 
+def _path_obs_hash(plant: dict, extra: str) -> str:
+    return (
+        "(json-encode (hash \"plant\" "
+        + scheme_string(plant["id"])
+        + ' "source" '
+        + scheme_string(plant["source"])
+        + " "
+        + extra
+        + "))"
+    )
+
+
+def emit_path_twin_driver(
+    plant: dict, chain: list[dict], n_pre: int = 40, n_post: int = 40
+) -> str:
+    """One plant, depth hops on the SAME world. Replant only after the driver ends."""
+    w0 = world_init_aura(plant)
+    lines = [
+        ";; path-mode twin-step — measured observe, no mid-hop reset",
+        '(require "farm" all:)',
+        "(define (num-or-false w k)",
+        "  (try (let ((v (hash-ref w k))) (if (number? v) v #f)) (catch (e) #f)))",
+        f"(set-code {scheme_string(plant['source'])})",
+        "(eval-current)",
+        f"(define *w* {w0})",
+        "(define (go k)",
+        "  (if (<= k 0) #t",
+        "    (begin (set! *w* (step *w* (control *w*))) (go (- k 1)))))",
+        f"(try (go {n_pre}) (catch (e) #f))",
+        "(define *rb* #f)",
+    ]
+    for i, rw in enumerate(chain, start=1):
+        name = rw.get("name") or "control"
+        lines += [
+            f"(define *epoch* {i})",
+            "(if *w*",
+            "  (begin",
+            '    (display "PATH_OBS ")',
+            "    (display "
+            + _path_obs_hash(
+                plant,
+                '"epoch" *epoch* "t" (hash-ref *w* "t") "energy" (energy *w*) '
+                '"sat" (num-or-false *w* "sat") "x2" (num-or-false *w* "x2")',
+            )
+            + ")",
+            "    (newline))",
+            '  (begin (display "PATH_DROP") (newline)))',
+            f"(set! *rb* (try (mutate:rebind {scheme_string(name)} {scheme_string(rw['body'])} {scheme_string(rw['summary'])}) (catch (e) #f)))",
+            "(if *rb* (try (eval-current) (catch (e) #f)) #f)",
+            f"(try (go {n_post}) (catch (e) (set! *w* #f)))",
+            "(if (and *rb* *w*)",
+            "  (begin",
+            '    (display "PATH_POST ")',
+            "    (display (json-encode (hash \"ok\" #t \"epoch\" *epoch*",
+            ' "t" (hash-ref *w* "t") "energy" (energy *w*)',
+            ' "sat" (num-or-false *w* "sat") "x2" (num-or-false *w* "x2")',
+            ' "name" '
+            + scheme_string(name)
+            + ' "summary" '
+            + scheme_string(rw["summary"])
+            + ' "body" '
+            + scheme_string(rw["body"])
+            + ")))",
+            "    (newline))",
+            '  (begin (display "PATH_POST ") (display (json-encode (hash "ok" #f "epoch" *epoch*))) (newline)))',
+        ]
+    lines.append("")
+    return "\n".join(lines)
+
+
+def emit_path_session_driver(plant: dict, chain: list[dict], k: int = 8) -> str:
+    """One plant, depth hops on the SAME sess. Replant only after the driver ends."""
+    lines = [
+        ";; path-mode session-hot — measured observe, no mid-hop reset",
+        f"(set-code {scheme_string(plant['source'])})",
+        "(eval-current)",
+        "(define *sess* *session*)",
+        '(define *book* (hash "bid" 1 "ask" 3 "mid" 2 "spread" 2))',
+        "(define *okq* #t)",
+        "(define *out* #f)",
+        "(define *rb* #f)",
+        "(define (go i)",
+        "  (if (<= i 0) #t",
+        "    (begin",
+        "      (set! *out* (try (tick *book* *sess*) (catch (e) #f)))",
+        '      (if (and *out* (number? (hash-ref *out* "q")))',
+        '        (set! *sess* (hash-ref *out* "sess"))',
+        "        (set! *okq* #f))",
+        "      (go (- i 1)))))",
+    ]
+    for i, rw in enumerate(chain, start=1):
+        name = rw.get("name") or "tick"
+        lines += [
+            f"(define *epoch* {i})",
+            "(if *sess*",
+            "  (begin",
+            '    (display "PATH_OBS ")',
+            "    (display "
+            + _path_obs_hash(
+                plant,
+                '"epoch" *epoch* "sid" (hash-ref *sess* "id") "sfd" (hash-ref *sess* "fd") '
+                '"sal" (hash-ref *sess* "alive") "sseq" (try (hash-ref *sess* "seq") (catch (e) 0))',
+            )
+            + ")",
+            "    (newline))",
+            '  (begin (display "PATH_DROP") (newline)))',
+            f"(set! *rb* (try (mutate:rebind {scheme_string(name)} {scheme_string(rw['body'])} {scheme_string(rw['summary'])}) (catch (e) #f)))",
+            "(if *rb* (try (eval-current) (catch (e) #f)) #f)",
+            "(set! *okq* #t)",
+            f"(if *rb* (try (go {k}) (catch (e) (set! *okq* #f))) #f)",
+            "(if (and *rb* *sess*)",
+            "  (begin",
+            '    (display "PATH_POST ")',
+            "    (display (json-encode (hash \"ok\" #t \"epoch\" *epoch*",
+            ' "sid" (hash-ref *sess* "id") "sfd" (hash-ref *sess* "fd")',
+            ' "sal" (hash-ref *sess* "alive")',
+            ' "sseq" (try (hash-ref *sess* "seq") (catch (e) 0))',
+            ' "okq" *okq*',
+            ' "name" '
+            + scheme_string(name)
+            + ' "summary" '
+            + scheme_string(rw["summary"])
+            + ' "body" '
+            + scheme_string(rw["body"])
+            + ")))",
+            "    (newline))",
+            '  (begin (display "PATH_POST ") (display (json-encode (hash "ok" #f "epoch" *epoch*))) (newline)))',
+        ]
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _load_path_rewrites(pid: str) -> tuple[list[dict], list[dict]]:
+    plants, rewrites = load_project(pid)
+    neg = PROJECTS_ROOT / pid / "rewrites.neg.jsonl"
+    extra: list[dict] = []
+    if neg.is_file():
+        extra = [json.loads(l) for l in neg.read_text(encoding="utf-8").splitlines() if l.strip()]
+    return plants, rewrites + extra
+
+
+def run_path(args: argparse.Namespace) -> int:
+    """Vertical path depth-4: measured observe, energy-up → refuse, cut on probe fail."""
+    pid = args.project
+    if pid not in ("twin-step", "session-hot"):
+        print("error: --mode path --project requires twin-step|session-hot", file=sys.stderr)
+        return 2
+    vertical = "twin" if pid == "twin-step" else "session"
+    plants, rewrites = _load_path_rewrites(pid)
+    keep_by_sum = {rw.get("summary"): rw.get("keep") is not False for rw in rewrites}
+    depth = max(1, min(args.depth, 4))
+    n_post = 40
+    k_ticks = 8
+    out_path = args.out if args.out != OUT else (ROOT / "data" / "raw" / f"farm-path-{pid}.jsonl")
+    refuse_path = getattr(args, "refuse_out", None)
+    keep = refuse_n = drop = 0
+    seen = seen_ids(out_path)
+    plants = plants[: args.rounds] if args.rounds else plants
+    for plant in plants:
+        chain = path_chain(plant, rewrites, depth, vertical)
+        if not chain:
+            continue
+        if vertical == "twin":
+            driver = emit_path_twin_driver(plant, chain, n_pre=40, n_post=n_post)
+        else:
+            driver = emit_path_session_driver(plant, chain, k=k_ticks)
+        try:
+            raw = run_aura(driver, timeout=min(args.timeout, 45))
+        except PatchError as e:
+            print(f"farm: path {plant.get('id')} {e}", flush=True)
+            drop += 1
+            continue
+        hops: list[tuple[dict, dict | None]] = []
+        pending_obs: dict | None = None
+        for line in raw.splitlines():
+            if line.startswith("PATH_DROP"):
+                drop += 1
+                pending_obs = None
+                continue
+            if line.startswith("PATH_OBS "):
+                pending_obs = json.loads(line[len("PATH_OBS ") :])
+            elif line.startswith("PATH_POST "):
+                post = json.loads(line[len("PATH_POST ") :])
+                hops.append((pending_obs or {}, post))
+                pending_obs = None
+        last = ""
+        last_obs: dict | None = None
+        frozen = list(plant.get("frozen") or (["step", "energy"] if vertical == "twin" else ["*session*", "gate"]))
+        hot = list(plant.get("hot") or (["control"] if vertical == "twin" else ["tick"]))
+        for obs, post in hops:
+            name = post.get("name") or hot[0]
+            if vertical == "twin":
+                pre = {
+                    "t": obs.get("t"),
+                    "energy": obs.get("energy"),
+                    "sat": obs.get("sat"),
+                    "x2": obs.get("x2"),
+                }
+                post_m = {
+                    "ok": post.get("ok", True),
+                    "t": post.get("t"),
+                    "energy": post.get("energy"),
+                    "sat": post.get("sat"),
+                    "x2": post.get("x2"),
+                }
+            else:
+                pre = {
+                    "session": {
+                        "id": obs.get("sid"),
+                        "fd": obs.get("sfd"),
+                        "alive": bool(obs.get("sal", True)),
+                        "seq": obs.get("sseq", 0),
+                    }
+                }
+                post_m = {
+                    "ok": post.get("ok", True),
+                    "okq": post.get("okq", True),
+                    "session": {
+                        "id": post.get("sid"),
+                        "fd": post.get("sfd"),
+                        "alive": bool(post.get("sal", True)),
+                        "seq": post.get("sseq", 0),
+                    },
+                }
+            action = path_decide(
+                pre,
+                post_m,
+                vertical,
+                last=last,
+                name=name,
+                frozen=frozen,
+                n_post=n_post,
+                k=k_ticks,
+                keep_flag=keep_by_sum.get(post.get("summary"), True),
+            )
+            epoch = obs.get("epoch") or post.get("epoch")
+            if action in ("refuse", "worsen"):
+                # Worsen: do not emit the rebind. Refuse gold uses measured post-step observe.
+                if vertical == "twin":
+                    src_obs = post if action == "worsen" else obs
+                    observe = {
+                        "t": src_obs.get("t"),
+                        "energy": src_obs.get("energy"),
+                        "hot": hot,
+                        "frozen": frozen,
+                        "epoch": epoch,
+                    }
+                    if _opt_num(src_obs.get("sat")) is not None:
+                        observe["sat"] = src_obs["sat"]
+                    prev_e = obs if action == "worsen" else last_obs
+                    intent = path_intent_twin(src_obs, prev_e, refuse=True)
+                    try:
+                        why = (
+                            "energy-up"
+                            if float(src_obs.get("energy"))
+                            >= float((prev_e or {}).get("energy", src_obs.get("energy")))
+                            else "drift"
+                        )
+                    except (TypeError, ValueError):
+                        why = "drift"
+                    rname = hot[0]
+                else:
+                    sess = post_m.get("session") if action == "worsen" else pre["session"]
+                    observe = {
+                        "session": sess,
+                        "hot": hot,
+                        "frozen": frozen,
+                        "epoch": epoch,
+                    }
+                    intent = path_intent_session(observe, refuse=True)
+                    why = "drift"
+                    rname = hot[0]
+                sample = {
+                    "id": f"path-{plant['id']}-e{epoch}-refuse",
+                    "input": {
+                        "source": plant["source"],
+                        "intent": intent,
+                        "observe": observe,
+                    },
+                    "target": [
+                        {"kind": "query", "op": "find", "name": rname},
+                        {
+                            "kind": "refuse",
+                            "op": "schema",
+                            "name": rname,
+                            "why": why,
+                        },
+                    ],
+                    "verify": {"apply_ok": True, "probes": {"refused": True}},
+                    "sft": True,
+                    "meta": {"mode": "path", "epoch": epoch, "chain": plant["id"]},
+                }
+                try:
+                    validate_patch(sample["target"], observe=observe)
+                except PatchError:
+                    drop += 1
+                    last = "cut"
+                    break
+                blob = json.dumps(sample)
+                if any(tok in blob for tok in ('"skip"', '"persist"', '"restore"', '"yield"')):
+                    drop += 1
+                    last = "cut"
+                    break
+                if sample["id"] not in seen:
+                    append_jsonl(out_path, sample)
+                    seen.add(sample["id"])
+                    if refuse_path:
+                        append_jsonl(refuse_path, sample)
+                    refuse_n += 1
+                last = "refuse"
+                break
+            if action == "cut":
+                drop += 1
+                last = "cut"
+                break
+            # keep
+            if vertical == "twin":
+                observe = {
+                    "t": obs.get("t"),
+                    "energy": obs.get("energy"),
+                    "hot": hot,
+                    "frozen": frozen,
+                    "epoch": epoch,
+                }
+                if _opt_num(obs.get("sat")) is not None:
+                    observe["sat"] = obs["sat"]
+                intent = path_intent_twin(obs)
+                target = [
+                    {"kind": "query", "op": "find", "name": name},
+                    {"kind": "query", "op": "def-use", "name": name},
+                    {
+                        "kind": "synthesis",
+                        "op": "rebind",
+                        "name": name,
+                        "body": post["body"],
+                        "summary": post["summary"],
+                    },
+                ]
+                verify = {
+                    "apply_ok": True,
+                    "unchanged": frozen,
+                    "probes": {"t_mono": True, "energy_after_steps_lt": post["energy"]},
+                }
+            else:
+                observe = {
+                    "session": pre["session"],
+                    "hot": hot,
+                    "frozen": frozen,
+                    "epoch": epoch,
+                }
+                intent = path_intent_session(observe)
+                target = [
+                    {"kind": "query", "op": "find", "name": name},
+                    {
+                        "kind": "synthesis",
+                        "op": "rebind",
+                        "name": name,
+                        "body": post["body"],
+                        "summary": post["summary"],
+                    },
+                ]
+                verify = {"apply_ok": True, "probes": {"session_stable": True}}
+            sample = {
+                "id": f"path-{plant['id']}-e{epoch}-{post.get('summary')}",
+                "input": {
+                    "source": plant["source"],
+                    "intent": intent,
+                    "observe": observe,
+                },
+                "target": target,
+                "verify": verify,
+                "sft": True,
+                "meta": {"mode": "path", "epoch": epoch, "chain": plant["id"]},
+            }
+            try:
+                validate_patch(sample["target"], observe=observe)
+            except PatchError:
+                drop += 1
+                last = "cut"
+                break
+            blob = json.dumps(sample)
+            if "skip" in blob or "persist" in blob or '"restore"' in blob or "yield" in blob:
+                drop += 1
+                last = "cut"
+                break
+            if sample["id"] not in seen:
+                append_jsonl(out_path, sample)
+                seen.add(sample["id"])
+                keep += 1
+            last = "keep"
+            last_obs = obs
+    print(
+        f"farm: mode=path project={pid} keep={keep} refuse={refuse_n} drop={drop} "
+        f"depth={depth} -> {out_path}"
+    )
+    return 0 if (keep or refuse_n) else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--rounds", type=int, default=24, help="cap on attempts (pairs), not keeps")
     p.add_argument("--timeout", type=int, default=120, help="whole Aura process timeout seconds")
-    p.add_argument("--project", default="", help="catalog/projects/<id> (required for --mode world)")
+    p.add_argument(
+        "--project",
+        default="",
+        help="catalog/projects/<id> (required for --mode world; path verticals)",
+    )
     p.add_argument(
         "--mode",
         default="star",
@@ -572,6 +1101,12 @@ def main(argv: list[str] | None = None) -> int:
         help="path-mode chain length before re-plant (capped at 4)",
     )
     p.add_argument("--limit-rewrites", type=int, default=0)
+    p.add_argument(
+        "--refuse-out",
+        type=Path,
+        default=None,
+        help="optional extra jsonl for path-mode energy-up refuse golds",
+    )
     p.add_argument("--out", type=Path, default=OUT)
     p.add_argument("--observe", type=Path, default=OBSERVE)
     p.add_argument("--spot-check", type=Path, default=None, help="re-apply keeps in this jsonl")
@@ -596,6 +1131,14 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if args.mode == "world":
         return run_world(args)
+    if args.mode == "path" and args.project:
+        if args.project not in ("twin-step", "session-hot"):
+            print(
+                "error: --mode path --project requires twin-step|session-hot",
+                file=sys.stderr,
+            )
+            return 2
+        return run_path(args)
     depth = max(1, min(args.depth, 4))
 
     try:
