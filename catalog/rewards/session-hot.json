@@ -1,0 +1,14 @@
+{
+  "project": "session-hot",
+  "k_ticks": 8,
+  "depth": 6,
+  "forks": 4,
+  "advantage_min": 0.0,
+  "weights": {
+    "identity_ok": 1.0,
+    "identity_break": -20.0,
+    "seq_jump": -5.0,
+    "refuse_correct": 2.0,
+    "rebind_worse": -2.0
+  }
+}

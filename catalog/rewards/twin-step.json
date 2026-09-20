@@ -1,0 +1,19 @@
+{
+  "project": "twin-step",
+  "n_pre": 40,
+  "n_post": 40,
+  "depth": 6,
+  "forks": 4,
+  "advantage_min": 0.0,
+  "weights": {
+    "energy": 5.0,
+    "t_break": -10.0,
+    "frozen_break": -20.0,
+    "sat_over": -3.0,
+    "refuse_correct": 2.0,
+    "rebind_worse": -2.0,
+    "metrics_cut": 0.5
+  },
+  "sat_cap_frac": 0.5,
+  "energy_eps": 1.0
+}
