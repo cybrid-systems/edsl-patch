@@ -52,7 +52,7 @@ class CatalogTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("catalog: ok projects=8", r.stdout)
+        self.assertIn("catalog: ok projects=10", r.stdout)
         orch = (ROOT / "catalog" / "projects" / "orch-pure" / "plants.jsonl").read_text()
         self.assertNotIn("agent:", orch)
         self.assertNotIn("fiber:", orch)
