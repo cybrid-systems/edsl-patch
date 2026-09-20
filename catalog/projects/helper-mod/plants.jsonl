@@ -1,0 +1,5 @@
+{"id": "helper-mod.p0", "source": "(define h (lambda (x) x))\n(define f (lambda (x) (h x)))", "names": ["f"], "project": "helper-mod"}
+{"id": "helper-mod.p1", "source": "(define h (lambda (x) x))\n(define f (lambda (x) (h x)))", "names": ["h"], "project": "helper-mod"}
+{"id": "helper-mod.p2", "source": "(define pad (lambda (x) 0))\n(define f (lambda (x) x))", "names": ["f"], "project": "helper-mod"}
+{"id": "helper-mod.p3", "source": "(define pad (lambda (x) 0))\n(define g (lambda (x) (pad x)))", "names": ["g"], "project": "helper-mod"}
+{"id": "helper-mod.p4", "source": "(define h (lambda (x) (* x 1)))\n(define f (lambda (x) (+ x 0)))", "names": ["f"], "project": "helper-mod"}

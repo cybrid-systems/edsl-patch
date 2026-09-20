@@ -1,0 +1,4 @@
+{"id": "pred-if.p0", "source": "(define p (lambda (x) (if (< x 0) 0 1)))", "names": ["p"], "project": "pred-if"}
+{"id": "pred-if.p1", "source": "(define p (lambda (x) (if (< x 0) x (* x -1))))", "names": ["p"], "project": "pred-if"}
+{"id": "pred-if.p2", "source": "(define p (lambda (x) x))", "names": ["p"], "project": "pred-if"}
+{"id": "pred-if.p3", "source": "(define q (lambda (x) (if (< x 1) 1 x)))", "names": ["q"], "project": "pred-if"}

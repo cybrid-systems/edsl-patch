@@ -44,6 +44,19 @@ class CatalogTests(unittest.TestCase):
         sugar = next(p for p in plants if p["id"] == "sugar-f")
         self.assertIn("(define (f x)", sugar["source"])
 
+    def test_projects_check(self):
+        r = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "catalog.py"), "--check", "--projects"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("catalog: ok projects=8", r.stdout)
+        orch = (ROOT / "catalog" / "projects" / "orch-pure" / "plants.jsonl").read_text()
+        self.assertNotIn("agent:", orch)
+        self.assertNotIn("fiber:", orch)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,8 @@
+{"id": "circ-dae.node-id", "project": "circ-dae", "name": "node", "body": "(lambda (id) id)", "summary": "node-id", "arity": 1}
+{"id": "circ-dae.node0", "project": "circ-dae", "name": "node", "body": "(lambda (id) 0)", "summary": "node-zero", "arity": 1}
+{"id": "circ-dae.node1", "project": "circ-dae", "name": "node", "body": "(lambda (id) (+ id 1))", "summary": "node-inc", "arity": 1}
+{"id": "circ-dae.edge-cons", "project": "circ-dae", "name": "edge", "body": "(lambda (a b) (cons a b))", "summary": "edge-cons", "arity": 2}
+{"id": "circ-dae.edge-a", "project": "circ-dae", "name": "edge", "body": "(lambda (a b) a)", "summary": "edge-src", "arity": 2}
+{"id": "circ-dae.edge-b", "project": "circ-dae", "name": "edge", "body": "(lambda (a b) b)", "summary": "edge-dst", "arity": 2}
+{"id": "circ-dae.en0", "project": "circ-dae", "name": "eval-node", "body": "(lambda (id) 0)", "summary": "eval-zero", "arity": 1}
+{"id": "circ-dae.en-id", "project": "circ-dae", "name": "eval-node", "body": "(lambda (id) id)", "summary": "eval-id", "arity": 1}

@@ -1,0 +1,8 @@
+{"id": "helper-mod.abs-pub", "project": "helper-mod", "name": "f", "body": "(lambda (x) (if (< x 0) (* x -1) x))", "summary": "abs-public", "arity": 1}
+{"id": "helper-mod.id-pub", "project": "helper-mod", "name": "f", "body": "(lambda (x) x)", "summary": "rename-public", "arity": 1}
+{"id": "helper-mod.plus1-pub", "project": "helper-mod", "name": "f", "body": "(lambda (x) (+ x 1))", "summary": "plus1-public", "arity": 1}
+{"id": "helper-mod.dbl-pub", "project": "helper-mod", "name": "f", "body": "(lambda (x) (* x 2))", "summary": "double-public", "arity": 1}
+{"id": "helper-mod.id-h", "project": "helper-mod", "name": "h", "body": "(lambda (x) x)", "summary": "id-helper", "arity": 1}
+{"id": "helper-mod.const-h", "project": "helper-mod", "name": "h", "body": "(lambda (x) 0)", "summary": "const-helper", "arity": 1}
+{"id": "helper-mod.eta-h", "project": "helper-mod", "name": "h", "body": "(lambda (x) (* x 1))", "summary": "eta-helper", "arity": 1}
+{"id": "helper-mod.neg-h", "project": "helper-mod", "name": "h", "body": "(lambda (x) (* x -1))", "summary": "inline-helper", "arity": 1}

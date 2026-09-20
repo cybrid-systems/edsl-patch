@@ -1,0 +1,8 @@
+{"id": "pred-if.flip", "project": "pred-if", "name": "p", "body": "(lambda (x) (if (< x 0) 1 0))", "summary": "flip-branch", "arity": 1}
+{"id": "pred-if.fix-abs", "project": "pred-if", "name": "p", "body": "(lambda (x) (if (< x 0) (* x -1) x))", "summary": "abs-pred", "arity": 1}
+{"id": "pred-if.always-t", "project": "pred-if", "name": "p", "body": "(lambda (x) (if (< x 0) x x))", "summary": "always-then", "arity": 1}
+{"id": "pred-if.sign", "project": "pred-if", "name": "p", "body": "(lambda (x) (if (< x 0) -1 1))", "summary": "sign", "arity": 1}
+{"id": "pred-if.zero", "project": "pred-if", "name": "p", "body": "(lambda (x) (if (< x 0) 0 0))", "summary": "const0-if", "arity": 1}
+{"id": "pred-if.id-if", "project": "pred-if", "name": "p", "body": "(lambda (x) (if (< x 0) x x))", "summary": "id-if", "arity": 1}
+{"id": "pred-if.clamp1", "project": "pred-if", "name": "p", "body": "(lambda (x) (if (< x 1) 1 x))", "summary": "clamp1", "arity": 1}
+{"id": "pred-if.neg-then", "project": "pred-if", "name": "p", "body": "(lambda (x) (if (< x 0) (* x -1) 0))", "summary": "neg-then", "arity": 1}

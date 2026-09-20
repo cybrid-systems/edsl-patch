@@ -1,0 +1,8 @@
+{"id": "span-aether.idx-id", "project": "span-aether", "name": "idx", "body": "(lambda (i n) i)", "summary": "idx-id", "arity": 2}
+{"id": "span-aether.idx0", "project": "span-aether", "name": "idx", "body": "(lambda (i n) 0)", "summary": "idx-zero", "arity": 2}
+{"id": "span-aether.idx-cl", "project": "span-aether", "name": "idx", "body": "(lambda (i n) (if (< i 0) 0 i))", "summary": "idx-clamp", "arity": 2}
+{"id": "span-aether.len-id", "project": "span-aether", "name": "len", "body": "(lambda (n) n)", "summary": "len-id", "arity": 1}
+{"id": "span-aether.len1", "project": "span-aether", "name": "len", "body": "(lambda (n) (+ n 1))", "summary": "len-inc", "arity": 1}
+{"id": "span-aether.len0", "project": "span-aether", "name": "len", "body": "(lambda (n) 0)", "summary": "len-zero", "arity": 1}
+{"id": "span-aether.clip0", "project": "span-aether", "name": "clip", "body": "(lambda (i n) (if (< i 0) 0 i))", "summary": "clip0", "arity": 2}
+{"id": "span-aether.clipn", "project": "span-aether", "name": "clip", "body": "(lambda (i n) (if (< n i) n i))", "summary": "clip-n", "arity": 2}

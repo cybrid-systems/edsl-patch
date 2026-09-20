@@ -1,0 +1,8 @@
+{"id": "list-fp.len0", "project": "list-fp", "name": "len", "body": "(lambda (xs) (if (null? xs) 0 0))", "summary": "len-empty", "arity": 1}
+{"id": "list-fp.len1", "project": "list-fp", "name": "len", "body": "(lambda (xs) (if (null? xs) 0 1))", "summary": "len-one", "arity": 1}
+{"id": "list-fp.head0", "project": "list-fp", "name": "head", "body": "(lambda (xs) (if (null? xs) 0 0))", "summary": "head-miss", "arity": 1}
+{"id": "list-fp.headc", "project": "list-fp", "name": "head", "body": "(lambda (xs) (if (null? xs) 0 (car xs)))", "summary": "head-car", "arity": 1}
+{"id": "list-fp.tailn", "project": "list-fp", "name": "tail", "body": "(lambda (xs) (quote ()))", "summary": "tail-empty", "arity": 1}
+{"id": "list-fp.tailc", "project": "list-fp", "name": "tail", "body": "(lambda (xs) (if (null? xs) (quote ()) (cdr xs)))", "summary": "tail-cdr", "arity": 1}
+{"id": "list-fp.wrap1", "project": "list-fp", "name": "wrap", "body": "(lambda (x) (cons x (quote ())))", "summary": "cons-one", "arity": 1}
+{"id": "list-fp.wrap0", "project": "list-fp", "name": "wrap", "body": "(lambda (x) (quote ()))", "summary": "cons-empty", "arity": 1}

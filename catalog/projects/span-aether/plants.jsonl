@@ -1,0 +1,4 @@
+{"id": "span-aether.p0", "source": "(define idx (lambda (i n) i))", "names": ["idx"], "project": "span-aether"}
+{"id": "span-aether.p1", "source": "(define len (lambda (n) n))", "names": ["len"], "project": "span-aether"}
+{"id": "span-aether.p2", "source": "(define clip (lambda (i n) i))", "names": ["clip"], "project": "span-aether"}
+{"id": "span-aether.p3", "source": "(define idx (lambda (i n) 0))", "names": ["idx"], "project": "span-aether"}

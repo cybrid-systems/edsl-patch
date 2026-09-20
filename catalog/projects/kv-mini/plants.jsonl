@@ -1,0 +1,4 @@
+{"id": "kv-mini.p0", "source": "(define get (lambda (box key) #f))", "names": ["get"], "project": "kv-mini"}
+{"id": "kv-mini.p1", "source": "(define put (lambda (box key val) box))", "names": ["put"], "project": "kv-mini"}
+{"id": "kv-mini.p2", "source": "(define miss (lambda (box key) #t))", "names": ["miss"], "project": "kv-mini"}
+{"id": "kv-mini.p3", "source": "(define get (lambda (box key) #f))\n(define put (lambda (box key val) box))", "names": ["get"], "project": "kv-mini"}

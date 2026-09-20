@@ -1,0 +1,4 @@
+{"id": "list-fp.p0", "source": "(define len (lambda (xs) (if (null? xs) 0 1)))", "names": ["len"], "project": "list-fp"}
+{"id": "list-fp.p1", "source": "(define head (lambda (xs) (if (null? xs) 0 (car xs))))", "names": ["head"], "project": "list-fp"}
+{"id": "list-fp.p2", "source": "(define tail (lambda (xs) (if (null? xs) (quote ()) (cdr xs))))", "names": ["tail"], "project": "list-fp"}
+{"id": "list-fp.p3", "source": "(define wrap (lambda (x) (cons x (quote ()))))", "names": ["wrap"], "project": "list-fp"}

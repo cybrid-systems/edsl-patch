@@ -1,0 +1,5 @@
+{"id": "arith-core.p0", "source": "(define f (lambda (x) x))", "names": ["f"], "project": "arith-core"}
+{"id": "arith-core.p1", "source": "(define g (lambda (x) (+ x 1)))", "names": ["g"], "project": "arith-core"}
+{"id": "arith-core.p2", "source": "(define pad (lambda (x) x))\n(define f (lambda (x) (pad x)))", "names": ["f"], "project": "arith-core"}
+{"id": "arith-core.p3", "source": "(define add (lambda (a b) a))", "names": ["add"], "project": "arith-core"}
+{"id": "arith-core.p4", "source": "(define (f x) 0)", "names": ["f"], "project": "arith-core"}

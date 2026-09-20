@@ -1,0 +1,8 @@
+{"id": "orch-pure.step-id", "project": "orch-pure", "name": "step", "body": "(lambda (x) x)", "summary": "step-id", "arity": 1}
+{"id": "orch-pure.step1", "project": "orch-pure", "name": "step", "body": "(lambda (x) (+ x 1))", "summary": "step-inc", "arity": 1}
+{"id": "orch-pure.step0", "project": "orch-pure", "name": "step", "body": "(lambda (x) 0)", "summary": "step-zero", "arity": 1}
+{"id": "orch-pure.route-l", "project": "orch-pure", "name": "route", "body": "(lambda (x y) x)", "summary": "route-left", "arity": 2}
+{"id": "orch-pure.route-r", "project": "orch-pure", "name": "route", "body": "(lambda (x y) y)", "summary": "route-right", "arity": 2}
+{"id": "orch-pure.route-sum", "project": "orch-pure", "name": "route", "body": "(lambda (x y) (+ x y))", "summary": "route-sum", "arity": 2}
+{"id": "orch-pure.merge-a", "project": "orch-pure", "name": "merge", "body": "(lambda (a b) a)", "summary": "merge-left", "arity": 2}
+{"id": "orch-pure.merge-b", "project": "orch-pure", "name": "merge", "body": "(lambda (a b) b)", "summary": "merge-right", "arity": 2}

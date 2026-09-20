@@ -1,0 +1,8 @@
+{"id": "kv-mini.get-f", "project": "kv-mini", "name": "get", "body": "(lambda (box key) #f)", "summary": "get-miss", "arity": 2}
+{"id": "kv-mini.get-car", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (if (null? box) #f (cdr (car box))))", "summary": "get-first", "arity": 2}
+{"id": "kv-mini.get-eq", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (if (null? box) #f (if (equal? (car (car box)) key) (cdr (car box)) #f)))", "summary": "get-eq", "arity": 2}
+{"id": "kv-mini.put-id", "project": "kv-mini", "name": "put", "body": "(lambda (box key val) box)", "summary": "put-id", "arity": 3}
+{"id": "kv-mini.put-cons", "project": "kv-mini", "name": "put", "body": "(lambda (box key val) (cons (cons key val) box))", "summary": "put-cons", "arity": 3}
+{"id": "kv-mini.miss-t", "project": "kv-mini", "name": "miss", "body": "(lambda (box key) #t)", "summary": "miss-always", "arity": 2}
+{"id": "kv-mini.miss-n", "project": "kv-mini", "name": "miss", "body": "(lambda (box key) (null? box))", "summary": "miss-empty", "arity": 2}
+{"id": "kv-mini.miss-f", "project": "kv-mini", "name": "miss", "body": "(lambda (box key) #f)", "summary": "miss-never", "arity": 2}
