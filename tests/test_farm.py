@@ -34,6 +34,8 @@ class WorldKeepTests(unittest.TestCase):
         self.assertTrue(twin_should_keep(40, 80, 40, 10.0, 3.0, "control", ["step"]))
         self.assertFalse(twin_should_keep(40, 80, 40, 10.0, 12.0, "control", ["step"]))
         self.assertFalse(twin_should_keep(40, 80, 40, 10.0, 3.0, "step", ["step"]))
+        self.assertFalse(twin_should_keep(40, 80, 40, 1e12, 3.0, "control", ["step"]))
+        self.assertFalse(twin_should_keep(40, 80, 40, 10.0, -1.0, "control", ["step"]))
 
     def test_session_keep_drop(self):
         from farm import session_should_keep

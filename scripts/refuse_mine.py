@@ -28,67 +28,87 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", type=Path, default=OUT)
     p.add_argument("--cap", type=int, default=20)
     args = p.parse_args(argv)
+    if args.out.is_file():
+        args.out.unlink()
     n = 0
-    # frozen: twin-step step
     plants, _ = load_project("twin-step")
-    src = plants[0]["source"]
-    row = {
-        "id": "refuse-frozen-step",
-        "input": {
-            "source": src,
-            "intent": "rewrite the integrator",
-            "observe": {"hot": ["control"], "frozen": ["step", "energy"]},
-        },
-        "target": [
-            {"kind": "query", "op": "find", "name": "step"},
-            {"kind": "refuse", "op": "frozen", "name": "step", "why": "integrator is frozen"},
-        ],
-        "verify": {"apply_ok": True, "unchanged": ["step"]},
-        "sft": True,
-    }
-    validate_patch(row["target"], observe=row["input"]["observe"])
-    emit(args.out, row)
-    n += 1
-    row2 = {
-        "id": "refuse-capability-eval",
-        "input": {
-            "source": "(define f (lambda (x) x))",
-            "intent": "eval the argument",
-            "observe": {"hot": ["f"], "frozen": []},
-        },
-        "target": [
-            {"kind": "query", "op": "find", "name": "f"},
-            {"kind": "refuse", "op": "capability", "name": "f", "why": "illegal token eval"},
-        ],
-        "verify": {"apply_ok": True, "unchanged": ["f"]},
-        "sft": True,
-    }
-    validate_patch(row2["target"])
-    emit(args.out, row2)
-    n += 1
+    for plant in plants:
+        if n >= args.cap:
+            break
+        for frozen, why in (("step", "integrator is frozen"), ("energy", "energy is read-only")):
+            row = {
+                "id": f"refuse-frozen-{plant['id']}-{frozen}",
+                "input": {
+                    "source": plant["source"],
+                    "intent": f"rewrite {frozen}",
+                    "observe": {"hot": ["control"], "frozen": ["step", "energy"]},
+                },
+                "target": [
+                    {"kind": "query", "op": "find", "name": frozen},
+                    {"kind": "refuse", "op": "frozen", "name": frozen, "why": why},
+                ],
+                "verify": {"apply_ok": True, "unchanged": [frozen]},
+                "sft": True,
+            }
+            validate_patch(row["target"], observe=row["input"]["observe"])
+            emit(args.out, row)
+            n += 1
+            if n >= args.cap:
+                break
     plants2, _ = load_project("session-hot")
-    row3 = {
-        "id": "refuse-frozen-session",
-        "input": {
-            "source": plants2[0]["source"],
-            "intent": "rebind session identity",
-            "observe": {"hot": ["quote"], "frozen": ["*session*"]},
-        },
-        "target": [
-            {"kind": "query", "op": "find", "name": "*session*"},
-            {
-                "kind": "refuse",
-                "op": "frozen",
-                "name": "*session*",
-                "why": "session identity is frozen",
+    for plant in plants2:
+        if n >= args.cap:
+            break
+        row = {
+            "id": f"refuse-frozen-{plant['id']}-session",
+            "input": {
+                "source": plant["source"],
+                "intent": "rebind session identity",
+                "observe": {"hot": ["quote"], "frozen": ["*session*"]},
             },
-        ],
-        "verify": {"apply_ok": True, "unchanged": ["*session*"]},
-        "sft": True,
-    }
-    validate_patch(row3["target"], observe=row3["input"]["observe"])
-    emit(args.out, row3)
-    n += 1
+            "target": [
+                {"kind": "query", "op": "find", "name": "*session*"},
+                {
+                    "kind": "refuse",
+                    "op": "frozen",
+                    "name": "*session*",
+                    "why": "session identity is frozen",
+                },
+            ],
+            "verify": {"apply_ok": True, "unchanged": ["*session*"]},
+            "sft": True,
+        }
+        validate_patch(row["target"], observe=row["input"]["observe"])
+        emit(args.out, row)
+        n += 1
+    for i, (why, op) in enumerate(
+        (
+            ("illegal token eval", "capability"),
+            ("illegal token c-load", "capability"),
+            ("illegal token fiber:spawn", "capability"),
+            ("illegal token synthesize:define", "capability"),
+            ("extra top-level define", "schema"),
+        )
+    ):
+        if n >= args.cap:
+            break
+        row = {
+            "id": f"refuse-cap-{i}",
+            "input": {
+                "source": "(define f (lambda (x) x))",
+                "intent": why,
+                "observe": {"hot": ["f"], "frozen": []},
+            },
+            "target": [
+                {"kind": "query", "op": "find", "name": "f"},
+                {"kind": "refuse", "op": op, "name": "f", "why": why},
+            ],
+            "verify": {"apply_ok": True, "unchanged": ["f"]},
+            "sft": True,
+        }
+        validate_patch(row["target"])
+        emit(args.out, row)
+        n += 1
     print(f"refuse_mine: wrote {n} (cap {args.cap}) -> {args.out}")
     return 0 if n >= 2 else 1
 

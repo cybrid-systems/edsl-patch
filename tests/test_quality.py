@@ -51,13 +51,22 @@ class QualityTests(unittest.TestCase):
         self.assertEqual(drops["dedup"], 1)
 
     def test_banned_token_drop(self):
-        # schema rejects eval in body; token filter still counts if schema-legal
-        # use source containing fiber:spawn
-        src = "(define f (lambda (x) x)) ; fiber:spawn"
+        src = "(define f (lambda (x) x))\n(define g (lambda (x) (eval x)))"
         rows = [sample(src, "f", "(lambda (x) (+ x 1))", "plus1")]
         kept, drops = run_filter(rows, project="p", cap=250, enforce_shape=False)
         self.assertEqual(kept, [])
         self.assertEqual(drops["token"], 1)
+
+    def test_eval_current_and_qualified_node_id_not_banned(self):
+        src = (
+            "(define f (lambda (x) x))\n"
+            "(define go (lambda () (eval-current)))\n"
+            "(define daed:node-id (lambda () 0))"
+        )
+        rows = [sample(src, "f", "(lambda (x) (+ x 1))", "plus1")]
+        kept, drops = run_filter(rows, project="p", cap=250, enforce_shape=False)
+        self.assertEqual(drops["token"], 0)
+        self.assertEqual(len(kept), 1)
 
     def test_summary_cap_drop(self):
         rows = [

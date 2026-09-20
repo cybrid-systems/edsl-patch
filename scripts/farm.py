@@ -158,7 +158,13 @@ def twin_should_keep(t0: float, t1: float, n_post: int, e0: float, e1: float, na
         return False
     if int(t1) != int(t0) + int(n_post):
         return False
-    return float(e1) < float(e0)
+    try:
+        e0f, e1f = float(e0), float(e1)
+    except (TypeError, ValueError):
+        return False
+    if e0f < 0 or e1f < 0 or e0f > 1e9 or e1f > 1e9:
+        return False
+    return e1f < e0f
 
 
 def session_should_keep(pre: dict, post: dict, name: str) -> bool:
@@ -311,17 +317,23 @@ def run_world(args: argparse.Namespace) -> int:
     out_path = args.out if args.out != OUT else (
         ROOT / "data" / "raw" / f"farm-world-{pid}.jsonl"
     )
-    if pid == "twin-step":
-        driver = emit_twin_world_driver(plan)
-    else:
-        driver = emit_session_world_driver(plan)
-    try:
-        raw = run_aura(driver, timeout=args.timeout)
-    except PatchError as e:
-        print(f"farm: {e}", file=sys.stderr)
-        return 1
     keep = drop = 0
     seen = seen_ids(out_path)
+    chunk = 8
+    raw_parts = []
+    for i in range(0, len(plan), chunk):
+        slice_plan = plan[i : i + chunk]
+        if pid == "twin-step":
+            driver = emit_twin_world_driver(slice_plan)
+        else:
+            driver = emit_session_world_driver(slice_plan)
+        try:
+            raw_parts.append(run_aura(driver, timeout=min(args.timeout, 45)))
+        except PatchError as e:
+            print(f"farm: chunk {i} {e}", flush=True)
+            drop += len(slice_plan)
+            continue
+    raw = "\n".join(raw_parts)
     for line in raw.splitlines():
         if line.startswith("WORLD_DROP"):
             drop += 1

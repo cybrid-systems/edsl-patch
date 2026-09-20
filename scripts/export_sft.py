@@ -52,9 +52,15 @@ def to_sft(sample: dict) -> dict:
     }
 
 
+MAX_SOURCE_CHARS = 1500
+
+
 def drop_reason(sample: dict) -> str | None:
     if sample.get("sft") is False:
         return "sft-false"
+    src = (sample.get("input") or {}).get("source") or ""
+    if len(src) > MAX_SOURCE_CHARS:
+        return "source-too-long"
     if (sample.get("verify") or {}).get("apply_ok") is False:
         return "apply_ok-false"
     target = sample.get("target") or []
@@ -177,16 +183,45 @@ def main(argv: list[str] | None = None) -> int:
         empty = [k for k, v in COMMERCIAL_SHARE.items() if not by.get(k)]
         if empty:
             print(f"export: warning empty commercial buckets {empty}", file=sys.stderr)
-        total = 100
         mixed = []
-        for k, share in COMMERCIAL_SHARE.items():
-            take = int(round(total * share))
+        taken = {}
+        # Never downsample verticals (twin/session/refuse); they are the scarce commercial signal.
+        for k in ("twin", "session", "refuse"):
             bucket = by.get(k) or []
-            if not bucket:
-                continue
-            mixed.extend(bucket[:take] if len(bucket) > take else bucket)
+            mixed.extend(bucket)
+            taken[k] = len(bucket)
+        n_vert = sum(taken.get(k, 0) for k in ("twin", "session", "refuse"))
+        from collections import defaultdict
+
+        def pick_diverse(bucket: list, take: int) -> list:
+            groups: dict[str, list] = defaultdict(list)
+            for item in bucket:
+                asst = (item.get("messages") or [{}, {}, {}])[2].get("content") or ""
+                groups[asst[80:140] if asst else "x"].append(item)
+            picked = []
+            keys = list(groups) or ["x"]
+            i = 0
+            while len(picked) < take and any(groups.values()):
+                g = keys[i % len(keys)]
+                if groups[g]:
+                    picked.append(groups[g].pop(0))
+                i += 1
+                if i > take * max(len(keys), 1) + 20:
+                    break
+            return picked[:take]
+
+        for k, share in (("dialect", 0.15), ("teacher", 0.05)):
+            bucket = by.get(k) or []
+            take = min(len(bucket), max(0, int(n_vert * share / 0.80))) if n_vert else min(len(bucket), 1)
+            picked = pick_diverse(bucket, take) if k == "dialect" else bucket[:take]
+            mixed.extend(picked)
+            taken[k] = len(picked)
         rows = mixed
-        print("export: profile=commercial " + " ".join(f"{k}={len(by.get(k) or [])}" for k in COMMERCIAL_SHARE))
+        n = max(len(rows), 1)
+        shares = " ".join(f"{k}={taken.get(k, 0)}({100*taken.get(k, 0)/n:.0f}%)" for k in COMMERCIAL_SHARE)
+        print(f"export: profile=commercial {shares} n={n}")
+        if taken.get("twin", 0) / n < 0.15:
+            print("export: warning twin share < 15% (world farm keep rate)", file=sys.stderr)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", encoding="utf-8") as f:

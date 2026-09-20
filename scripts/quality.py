@@ -44,12 +44,18 @@ def sample_key(source: str, name: str, body: str) -> str:
 
 
 def banned(text: str) -> str | None:
+    """Flag real call tokens, not eval-current, daed:node-id, or comments."""
     t = text or ""
-    for tok in BANNED:
-        if tok == "eval" and re.search(r"\beval\b", t):
-            return tok
-        if tok != "eval" and tok in t:
-            return tok
+    if re.search(r"\(eval(?!-current)\b", t):
+        return "eval"
+    if "synthesize:define" in t:
+        return "synthesize:define"
+    if re.search(r"\(fiber:spawn\b", t):
+        return "fiber:spawn"
+    if "<think>" in t:
+        return "<think>"
+    if re.search(r"(?<![:\w])node-id\b", t) or re.search(r"(?<![:\w])#nid\b", t):
+        return "node-id"
     return None
 
 
@@ -58,6 +64,8 @@ def name_in_source(source: str, name: str) -> bool:
         return False
     defs = extract_defines(source)
     if name in defs:
+        return True
+    if name.startswith("*") and name in (source or ""):
         return True
     return bool(re.search(rf"\(define\s+(\({re.escape(name)}\b|{re.escape(name)}\b)", source or ""))
 
@@ -69,10 +77,10 @@ def inspect(sample: dict) -> tuple[str, str, str, str]:
     body = ""
     summary = ""
     for step in target:
-        if step.get("kind") == "synthesis":
+        if step.get("kind") in ("synthesis", "refuse"):
             name = step.get("name") or ""
             body = step.get("body") or ""
-            summary = step.get("summary") or ""
+            summary = step.get("summary") or step.get("why") or ""
     return source, name, body, summary
 
 
