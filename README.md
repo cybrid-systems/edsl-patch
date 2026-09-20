@@ -75,6 +75,15 @@ A `rebind` patch is:
 
 Decide / persist / restore stay Strand meanings and are **not** v1 training targets. Poison must not become a positive synthesis label.
 
+## Grok Build
+
+```bash
+cd edsl-patch
+grok
+```
+
+Then `/goal` the **open issue number** only, e.g. implement #2 exactly. Contract: `AGENTS.md`. Do not expand to other issues. Do not commit `data/raw/`. Default farm budget is `smoke` (`catalog/projects/BUDGET.md`).
+
 ## Session budget (Grok Build)
 
 Default is `smoke`: 20 farm keeps, collect `--limit 5`, **zero** catalog edits.
