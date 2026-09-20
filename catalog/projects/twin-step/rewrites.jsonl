@@ -1,0 +1,8 @@
+{"id":"twin-step.zero-u","project":"twin-step","name":"control","body":"(lambda (world) 0)","summary":"zero-u","arity":1}
+{"id":"twin-step.damp-v","project":"twin-step","name":"control","body":"(lambda (world) (* -1 (hash-ref world \"v\")))","summary":"damp-v","arity":1}
+{"id":"twin-step.p-x","project":"twin-step","name":"control","body":"(lambda (world) (* -1 (hash-ref world \"x\")))","summary":"p-x","arity":1}
+{"id":"twin-step.pd","project":"twin-step","name":"control","body":"(lambda (world) (+ (* -1 (hash-ref world \"x\")) (* -1 (hash-ref world \"v\"))))","summary":"pd","arity":1}
+{"id":"twin-step.clip-u","project":"twin-step","name":"control","body":"(lambda (world) (let ((u (+ (* -1 (hash-ref world \"x\")) (* -1 (hash-ref world \"v\"))))) (if (< u -1) -1 (if (< 1 u) 1 u))))","summary":"clip-u","arity":1}
+{"id":"twin-step.coast-if-small","project":"twin-step","name":"control","body":"(lambda (world) (if (< (hash-ref world \"v\") 1) (if (< -1 (hash-ref world \"v\")) 0 (* -1 (hash-ref world \"v\"))) (* -1 (hash-ref world \"v\"))))","summary":"coast-if-small","arity":1}
+{"id":"twin-step.sign-damp","project":"twin-step","name":"control","body":"(lambda (world) (if (< (hash-ref world \"v\") 0) 1 -1))","summary":"sign-damp","arity":1}
+{"id":"twin-step.hold","project":"twin-step","name":"control","body":"(lambda (world) 0)","summary":"hold","arity":1}
