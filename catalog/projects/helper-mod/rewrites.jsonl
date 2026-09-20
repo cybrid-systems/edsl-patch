@@ -14,3 +14,13 @@
 {"id": "helper-mod.c2", "project": "helper-mod", "name": "f", "body": "(lambda (x) 1)", "summary": "const1-helper", "arity": 1}
 {"id": "helper-mod.dblh", "project": "helper-mod", "name": "f", "body": "(lambda (x) (* x 2))", "summary": "dbl-helper", "arity": 1}
 {"id": "helper-mod.absh", "project": "helper-mod", "name": "f", "body": "(lambda (x) (if (< x 0) (* x -1) x))", "summary": "abs-helper", "arity": 1}
+{"id": "helper-mod.if-abs", "project": "helper-mod", "name": "f", "body": "(lambda (x) (if (< x 0) (* x -1) x))", "summary": "if-abs", "arity": 1}
+{"id": "helper-mod.if-pos", "project": "helper-mod", "name": "f", "body": "(lambda (x) (if (< x 0) 0 x))", "summary": "if-pos", "arity": 1}
+{"id": "helper-mod.if-neg", "project": "helper-mod", "name": "f", "body": "(lambda (x) (if (< x 0) x 0))", "summary": "if-neg", "arity": 1}
+{"id": "helper-mod.if-one", "project": "helper-mod", "name": "f", "body": "(lambda (x) (if (< x 1) 1 x))", "summary": "if-one", "arity": 1}
+{"id": "helper-mod.if-eq0", "project": "helper-mod", "name": "f", "body": "(lambda (x) (if (< x 0) 0 0))", "summary": "if-zero", "arity": 1}
+{"id": "helper-mod.plus6", "project": "helper-mod", "name": "f", "body": "(lambda (x) (+ x 6))", "summary": "plus6", "arity": 1}
+{"id": "helper-mod.plus7", "project": "helper-mod", "name": "f", "body": "(lambda (x) (+ x 7))", "summary": "plus7", "arity": 1}
+{"id": "helper-mod.times5", "project": "helper-mod", "name": "f", "body": "(lambda (x) (* x 5))", "summary": "times5", "arity": 1}
+{"id": "helper-mod.minus3", "project": "helper-mod", "name": "f", "body": "(lambda (x) (- x 3))", "summary": "minus3", "arity": 1}
+{"id": "helper-mod.dblplus", "project": "helper-mod", "name": "f", "body": "(lambda (x) (+ x x))", "summary": "dblplus", "arity": 1}

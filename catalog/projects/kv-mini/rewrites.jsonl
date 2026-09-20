@@ -16,3 +16,11 @@
 {"id": "kv-mini.gbody5", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (if (null? box) #f 5))", "summary": "get-const5", "arity": 2}
 {"id": "kv-mini.gbody6", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (if (null? box) #f 6))", "summary": "get-const6", "arity": 2}
 {"id": "kv-mini.gbody7", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (if (null? box) #f 7))", "summary": "get-const7", "arity": 2}
+{"id": "kv-mini.gmiss", "project": "kv-mini", "name": "get", "body": "(lambda (box key) #f)", "summary": "g-miss", "arity": 2}
+{"id": "kv-mini.gnull", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (null? box))", "summary": "g-null", "arity": 2}
+{"id": "kv-mini.gtrue", "project": "kv-mini", "name": "get", "body": "(lambda (box key) #t)", "summary": "g-true", "arity": 2}
+{"id": "kv-mini.gcar", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (if (null? box) #f (car box)))", "summary": "g-car", "arity": 2}
+{"id": "kv-mini.gcdr", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (if (null? box) #f (cdr (car box))))", "summary": "g-cdr", "arity": 2}
+{"id": "kv-mini.geq", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (if (null? box) #f (equal? (car (car box)) key)))", "summary": "g-eq", "arity": 2}
+{"id": "kv-mini.g0", "project": "kv-mini", "name": "get", "body": "(lambda (box key) 0)", "summary": "g-zero", "arity": 2}
+{"id": "kv-mini.g1", "project": "kv-mini", "name": "get", "body": "(lambda (box key) 1)", "summary": "g-one", "arity": 2}

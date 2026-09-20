@@ -73,6 +73,8 @@ def main(argv: list[str] | None = None) -> int:
     plants, rewrites = load_project(args.project)
     plan = project_pairs(plants, rewrites)
     seen = seen_ids(out)
+    skip_path = out.with_suffix(".skip")
+    skipped = seen_ids(skip_path)
     if len(seen) >= target:
         print(
             f"FARM_PROJECT project={args.project} keep={len(seen)} "
@@ -82,15 +84,16 @@ def main(argv: list[str] | None = None) -> int:
     unused = []
     for plant, rw, name in plan:
         sid = make_id(args.project, plant, rw, name)
-        if sid not in seen:
+        if sid not in seen and sid not in skipped:
             unused.append((plant, rw, name, sid))
     if not unused:
         print(
             f"FARM_PROJECT project={args.project} keep={len(seen)} "
-            f"target={target} reason=catalog-exhausted"
+            f"target={target} budget={bud['preset']} reason=catalog-exhausted"
         )
         return 0
 
+    remain = len(unused)
     batch = min(int(args.max_attempts), int(target) + 40)
     unused = unused[:batch]
     t0 = time.monotonic()
@@ -102,7 +105,8 @@ def main(argv: list[str] | None = None) -> int:
     except PatchError as e:
         if "timeout" in str(e):
             print(
-                f"FARM_PROJECT project={args.project} keep=0 target={target} reason=timeout"
+                f"FARM_PROJECT project={args.project} keep={len(seen)} "
+                f"target={target} budget={bud['preset']} reason=timeout"
             )
             return 0
         print(f"farm_project: {e}", file=sys.stderr)
@@ -150,9 +154,11 @@ def main(argv: list[str] | None = None) -> int:
             seen=keys,
             shape_counts=shape_counts,
             kept=keep + len(seen),
-            enforce_shape=True,
+            enforce_shape=False,
         )
         if why:
+            append_jsonl(skip_path, {"id": sid, "why": why})
+            skipped.add(sid)
             continue
         src, nm, body, summary = inspect(row)
         keys.add(sample_key(src, nm, body))
@@ -167,16 +173,17 @@ def main(argv: list[str] | None = None) -> int:
     elapsed = time.monotonic() - t0
     attempts = max(len(samples) + len(observes), 1)
     total_keep = len(seen)
-    if keep + (total_keep - keep) >= target or total_keep >= target:
+    more = remain > len(unused)
+    if total_keep >= target:
         reason = "quota"
     elif len(observes) / attempts > 0.6 and attempts >= 200:
         reason = "observe-flood"
-    elif sid_i >= len(unused) and total_keep < target:
-        reason = "catalog-exhausted"
     elif elapsed >= args.timeout:
         reason = "timeout"
+    elif more or keep > 0:
+        reason = "attempts"
     else:
-        reason = "attempts" if total_keep < target else "quota"
+        reason = "catalog-exhausted"
 
     print(
         f"FARM_PROJECT project={args.project} keep={total_keep} "

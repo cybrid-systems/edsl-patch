@@ -6,3 +6,13 @@
 {"id": "pred-if.id-if", "project": "pred-if", "name": "p", "body": "(lambda (x) (if (< x 0) x x))", "summary": "id-if", "arity": 1}
 {"id": "pred-if.clamp1", "project": "pred-if", "name": "p", "body": "(lambda (x) (if (< x 1) 1 x))", "summary": "clamp1", "arity": 1}
 {"id": "pred-if.neg-then", "project": "pred-if", "name": "p", "body": "(lambda (x) (if (< x 0) (* x -1) 0))", "summary": "neg-then", "arity": 1}
+{"id": "pred-if.if-abs", "project": "pred-if", "name": "p", "body": "(lambda (x) (if (< x 0) (* x -1) x))", "summary": "if-abs", "arity": 1}
+{"id": "pred-if.if-pos", "project": "pred-if", "name": "p", "body": "(lambda (x) (if (< x 0) 0 x))", "summary": "if-pos", "arity": 1}
+{"id": "pred-if.if-neg", "project": "pred-if", "name": "p", "body": "(lambda (x) (if (< x 0) x 0))", "summary": "if-neg", "arity": 1}
+{"id": "pred-if.if-one", "project": "pred-if", "name": "p", "body": "(lambda (x) (if (< x 1) 1 x))", "summary": "if-one", "arity": 1}
+{"id": "pred-if.if-eq0", "project": "pred-if", "name": "p", "body": "(lambda (x) (if (< x 0) 0 0))", "summary": "if-zero", "arity": 1}
+{"id": "pred-if.plus6", "project": "pred-if", "name": "p", "body": "(lambda (x) (+ x 6))", "summary": "plus6", "arity": 1}
+{"id": "pred-if.plus7", "project": "pred-if", "name": "p", "body": "(lambda (x) (+ x 7))", "summary": "plus7", "arity": 1}
+{"id": "pred-if.times5", "project": "pred-if", "name": "p", "body": "(lambda (x) (* x 5))", "summary": "times5", "arity": 1}
+{"id": "pred-if.minus3", "project": "pred-if", "name": "p", "body": "(lambda (x) (- x 3))", "summary": "minus3", "arity": 1}
+{"id": "pred-if.dblplus", "project": "pred-if", "name": "p", "body": "(lambda (x) (+ x x))", "summary": "dblplus", "arity": 1}

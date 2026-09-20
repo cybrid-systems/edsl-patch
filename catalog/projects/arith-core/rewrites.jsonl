@@ -28,3 +28,11 @@
 {"id": "arith-core.pred", "project": "arith-core", "name": "f", "body": "(lambda (x) (- x 1))", "summary": "pred", "arity": 1}
 {"id": "arith-core.succ", "project": "arith-core", "name": "f", "body": "(lambda (x) (+ x 1))", "summary": "succ", "arity": 1}
 {"id": "arith-core.negplus", "project": "arith-core", "name": "f", "body": "(lambda (x) (+ (* x -1) 0))", "summary": "negplus", "arity": 1}
+{"id": "arith-core.if-abs", "project": "arith-core", "name": "f", "body": "(lambda (x) (if (< x 0) (* x -1) x))", "summary": "if-abs", "arity": 1}
+{"id": "arith-core.if-pos", "project": "arith-core", "name": "f", "body": "(lambda (x) (if (< x 0) 0 x))", "summary": "if-pos", "arity": 1}
+{"id": "arith-core.if-neg", "project": "arith-core", "name": "f", "body": "(lambda (x) (if (< x 0) x 0))", "summary": "if-neg", "arity": 1}
+{"id": "arith-core.if-one", "project": "arith-core", "name": "f", "body": "(lambda (x) (if (< x 1) 1 x))", "summary": "if-one", "arity": 1}
+{"id": "arith-core.if-eq0", "project": "arith-core", "name": "f", "body": "(lambda (x) (if (< x 0) 0 0))", "summary": "if-zero", "arity": 1}
+{"id": "arith-core.if-two", "project": "arith-core", "name": "f", "body": "(lambda (x) (if (< x 2) 2 x))", "summary": "if-two", "arity": 1}
+{"id": "arith-core.if-three", "project": "arith-core", "name": "f", "body": "(lambda (x) (if (< x 3) 3 x))", "summary": "if-three", "arity": 1}
+{"id": "arith-core.if-neg1", "project": "arith-core", "name": "f", "body": "(lambda (x) (if (< x 0) -1 1))", "summary": "if-sign", "arity": 1}

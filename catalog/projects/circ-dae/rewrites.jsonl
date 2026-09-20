@@ -6,3 +6,13 @@
 {"id": "circ-dae.edge-b", "project": "circ-dae", "name": "edge", "body": "(lambda (a b) b)", "summary": "edge-dst", "arity": 2}
 {"id": "circ-dae.en0", "project": "circ-dae", "name": "eval-node", "body": "(lambda (id) 0)", "summary": "eval-zero", "arity": 1}
 {"id": "circ-dae.en-id", "project": "circ-dae", "name": "eval-node", "body": "(lambda (id) id)", "summary": "eval-id", "arity": 1}
+{"id": "circ-dae.plus6", "project": "circ-dae", "name": "node", "body": "(lambda (x) (+ x 6))", "summary": "plus6", "arity": 1}
+{"id": "circ-dae.plus7", "project": "circ-dae", "name": "node", "body": "(lambda (x) (+ x 7))", "summary": "plus7", "arity": 1}
+{"id": "circ-dae.times5", "project": "circ-dae", "name": "node", "body": "(lambda (x) (* x 5))", "summary": "times5", "arity": 1}
+{"id": "circ-dae.minus3", "project": "circ-dae", "name": "node", "body": "(lambda (x) (- x 3))", "summary": "minus3", "arity": 1}
+{"id": "circ-dae.dblplus", "project": "circ-dae", "name": "node", "body": "(lambda (x) (+ x x))", "summary": "dblplus", "arity": 1}
+{"id": "circ-dae.if-abs", "project": "circ-dae", "name": "node", "body": "(lambda (x) (if (< x 0) (* x -1) x))", "summary": "if-abs", "arity": 1}
+{"id": "circ-dae.if-pos", "project": "circ-dae", "name": "node", "body": "(lambda (x) (if (< x 0) 0 x))", "summary": "if-pos", "arity": 1}
+{"id": "circ-dae.if-neg", "project": "circ-dae", "name": "node", "body": "(lambda (x) (if (< x 0) x 0))", "summary": "if-neg", "arity": 1}
+{"id": "circ-dae.if-one", "project": "circ-dae", "name": "node", "body": "(lambda (x) (if (< x 1) 1 x))", "summary": "if-one", "arity": 1}
+{"id": "circ-dae.if-eq0", "project": "circ-dae", "name": "node", "body": "(lambda (x) (if (< x 0) 0 0))", "summary": "if-zero", "arity": 1}

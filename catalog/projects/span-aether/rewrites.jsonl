@@ -6,3 +6,13 @@
 {"id": "span-aether.len0", "project": "span-aether", "name": "len", "body": "(lambda (n) 0)", "summary": "len-zero", "arity": 1}
 {"id": "span-aether.clip0", "project": "span-aether", "name": "clip", "body": "(lambda (i n) (if (< i 0) 0 i))", "summary": "clip0", "arity": 2}
 {"id": "span-aether.clipn", "project": "span-aether", "name": "clip", "body": "(lambda (i n) (if (< n i) n i))", "summary": "clip-n", "arity": 2}
+{"id": "span-aether.plus6", "project": "span-aether", "name": "len", "body": "(lambda (x) (+ x 6))", "summary": "plus6", "arity": 1}
+{"id": "span-aether.plus7", "project": "span-aether", "name": "len", "body": "(lambda (x) (+ x 7))", "summary": "plus7", "arity": 1}
+{"id": "span-aether.times5", "project": "span-aether", "name": "len", "body": "(lambda (x) (* x 5))", "summary": "times5", "arity": 1}
+{"id": "span-aether.minus3", "project": "span-aether", "name": "len", "body": "(lambda (x) (- x 3))", "summary": "minus3", "arity": 1}
+{"id": "span-aether.dblplus", "project": "span-aether", "name": "len", "body": "(lambda (x) (+ x x))", "summary": "dblplus", "arity": 1}
+{"id": "span-aether.if-abs", "project": "span-aether", "name": "len", "body": "(lambda (x) (if (< x 0) (* x -1) x))", "summary": "if-abs", "arity": 1}
+{"id": "span-aether.if-pos", "project": "span-aether", "name": "len", "body": "(lambda (x) (if (< x 0) 0 x))", "summary": "if-pos", "arity": 1}
+{"id": "span-aether.if-neg", "project": "span-aether", "name": "len", "body": "(lambda (x) (if (< x 0) x 0))", "summary": "if-neg", "arity": 1}
+{"id": "span-aether.if-one", "project": "span-aether", "name": "len", "body": "(lambda (x) (if (< x 1) 1 x))", "summary": "if-one", "arity": 1}
+{"id": "span-aether.if-eq0", "project": "span-aether", "name": "len", "body": "(lambda (x) (if (< x 0) 0 0))", "summary": "if-zero", "arity": 1}

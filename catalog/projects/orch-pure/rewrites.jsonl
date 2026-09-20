@@ -6,3 +6,13 @@
 {"id": "orch-pure.route-sum", "project": "orch-pure", "name": "route", "body": "(lambda (x y) (+ x y))", "summary": "route-sum", "arity": 2}
 {"id": "orch-pure.merge-a", "project": "orch-pure", "name": "merge", "body": "(lambda (a b) a)", "summary": "merge-left", "arity": 2}
 {"id": "orch-pure.merge-b", "project": "orch-pure", "name": "merge", "body": "(lambda (a b) b)", "summary": "merge-right", "arity": 2}
+{"id": "orch-pure.plus6", "project": "orch-pure", "name": "step", "body": "(lambda (x) (+ x 6))", "summary": "plus6", "arity": 1}
+{"id": "orch-pure.plus7", "project": "orch-pure", "name": "step", "body": "(lambda (x) (+ x 7))", "summary": "plus7", "arity": 1}
+{"id": "orch-pure.times5", "project": "orch-pure", "name": "step", "body": "(lambda (x) (* x 5))", "summary": "times5", "arity": 1}
+{"id": "orch-pure.minus3", "project": "orch-pure", "name": "step", "body": "(lambda (x) (- x 3))", "summary": "minus3", "arity": 1}
+{"id": "orch-pure.dblplus", "project": "orch-pure", "name": "step", "body": "(lambda (x) (+ x x))", "summary": "dblplus", "arity": 1}
+{"id": "orch-pure.if-abs", "project": "orch-pure", "name": "step", "body": "(lambda (x) (if (< x 0) (* x -1) x))", "summary": "if-abs", "arity": 1}
+{"id": "orch-pure.if-pos", "project": "orch-pure", "name": "step", "body": "(lambda (x) (if (< x 0) 0 x))", "summary": "if-pos", "arity": 1}
+{"id": "orch-pure.if-neg", "project": "orch-pure", "name": "step", "body": "(lambda (x) (if (< x 0) x 0))", "summary": "if-neg", "arity": 1}
+{"id": "orch-pure.if-one", "project": "orch-pure", "name": "step", "body": "(lambda (x) (if (< x 1) 1 x))", "summary": "if-one", "arity": 1}
+{"id": "orch-pure.if-eq0", "project": "orch-pure", "name": "step", "body": "(lambda (x) (if (< x 0) 0 0))", "summary": "if-zero", "arity": 1}
