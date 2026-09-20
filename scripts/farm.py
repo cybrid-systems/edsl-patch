@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Star- or path-mode farm: one Aura process, many rewrites, farm.jsonl.
+"""Star-, path-, or world-mode farm: one Aura process, many rewrites.
 
 Does not spawn Aura per sample. --rounds caps *attempts* (plant×rewrite
 pairs sent to farm:run). Default --mode star. Path mode (--mode path
---depth 4) chains from post-source, then re-plants. Prints
-keep/observe/illegal counts.
+--depth 4) chains from post-source, then re-plants.
+
+World mode (--mode world --project twin-step|session-hot) steps a live
+world / sess and keeps only if conjunction probes pass. Vacuous or
+harmful bodies (sign-damp on sat-plant, kill-alive, keep=false) drop.
+Do not lower probes to raise keep rate. Prints keep/observe/illegal counts.
 """
 
 from __future__ import annotations
@@ -153,8 +157,21 @@ def make_id(plant: dict, rw: dict, name: str) -> str:
     return f"farm-{plant['id']}-{rw['id']}-{name}"
 
 
-def twin_should_keep(t0: float, t1: float, n_post: int, e0: float, e1: float, name: str, frozen: list[str]) -> bool:
-    if name in frozen or name in ("step", "energy"):
+def twin_should_keep(
+    t0: float,
+    t1: float,
+    n_post: int,
+    e0: float,
+    e1: float,
+    name: str,
+    frozen: list[str],
+    sat0: float | None = None,
+    sat1: float | None = None,
+    x2_pre: float | None = None,
+    x2_post: float | None = None,
+) -> bool:
+    """Conjunction probes. Vacuous/harmful bodies must fail."""
+    if name in frozen or name in ("step", "energy", "impulse"):
         return False
     if int(t1) != int(t0) + int(n_post):
         return False
@@ -164,18 +181,61 @@ def twin_should_keep(t0: float, t1: float, n_post: int, e0: float, e1: float, na
         return False
     if e0f < 0 or e1f < 0 or e0f > 1e9 or e1f > 1e9:
         return False
-    return e1f < e0f
+    if not (e1f < e0f):
+        return False
+    if sat0 is not None and sat1 is not None:
+        if float(sat1) > float(sat0) + (int(n_post) / 2):
+            return False
+    if x2_pre is not None and x2_post is not None:
+        if abs(float(x2_post)) > max(abs(float(x2_pre)), 20.0):
+            return False
+    return True
 
 
-def session_should_keep(pre: dict, post: dict, name: str) -> bool:
+def session_should_keep(
+    pre: dict,
+    post: dict,
+    name: str,
+    keep_flag: bool | None = True,
+    q_ok: bool = True,
+    k: int = 8,
+) -> bool:
+    """Identity + seq + numeric-q conjunction. keep=false / kill-alive drop."""
+    if keep_flag is False:
+        return False
+    if q_ok is False:
+        return False
     if name in ("*session*", "gate"):
         return False
-    return (
-        pre.get("id") == post.get("id")
-        and pre.get("fd") == post.get("fd")
-        and bool(pre.get("alive")) is True
-        and bool(post.get("alive")) is True
-    )
+    if pre.get("id") != post.get("id") or pre.get("fd") != post.get("fd"):
+        return False
+    if bool(pre.get("alive")) is not True or bool(post.get("alive")) is not True:
+        return False
+    if "seq" in pre or "seq" in post:
+        d = int(post.get("seq") or 0) - int(pre.get("seq") or 0)
+        if d not in (0, 1, int(k)):
+            return False
+    return True
+
+
+def world_init_aura(plant: dict) -> str:
+    """Plant-specific world_0. two-mass / sat-plant are not free-mass clones."""
+    pid = str(plant.get("id") or "")
+    src = plant.get("source") or ""
+    if pid.endswith("two-mass") or '"x1"' in src:
+        return '(hash "x1" 2 "v1" 1 "x2" -1 "v2" 0 "t" 0)'
+    if pid.endswith("sat-plant") or '"sat"' in src:
+        return '(hash "x" 2 "v" 1 "t" 0 "sat" 0)'
+    return '(hash "x" 2 "v" 1 "t" 0)'
+
+
+def _opt_num(v) -> float | None:
+    if v is None or v is False:
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
 
 
 def read_jsonl(path: Path) -> list[dict]:
@@ -222,32 +282,51 @@ def spot_check(path: Path, frac: float) -> int:
 
 
 def emit_twin_world_driver(plan: list[tuple[dict, dict, str]], n_pre: int = 40, n_post: int = 40) -> str:
-    lines = [";; world-mode twin-step", '(require "farm" all:)']
+    """Drive plant-specific world_0; print sat/x2; Python applies keep."""
+    lines = [
+        ";; world-mode twin-step",
+        '(require "farm" all:)',
+        "(define (num-or-false w k)",
+        "  (try (let ((v (hash-ref w k))) (if (number? v) v #f)) (catch (e) #f)))",
+    ]
     for plant, rw, name in plan:
-        if name in (plant.get("frozen") or []) or name in ("step", "energy"):
+        frozen = list(plant.get("frozen") or ["step", "energy"])
+        if rw.get("keep") is False:
             continue
+        if name in frozen or name in ("step", "energy", "impulse"):
+            continue
+        w0 = world_init_aura(plant)
         lines += [
             f"(set-code {scheme_string(plant['source'])})",
             "(eval-current)",
-            '(define *w* (hash "x" 2 "v" 1 "t" 0))',
+            f"(define *w* {w0})",
             "(define (go k)",
             "  (if (<= k 0) #t",
             "    (begin (set! *w* (step *w* (control *w*))) (go (- k 1)))))",
-            f"(go {n_pre})",
+            f"(try (go {n_pre}) (catch (e) #f))",
             '(define *t0* (hash-ref *w* "t"))',
             "(define *e0* (energy *w*))",
+            '(define *sat0* (num-or-false *w* "sat"))',
+            '(define *x20* (num-or-false *w* "x2"))',
             f"(define *rb* (try (mutate:rebind {scheme_string(name)} {scheme_string(rw['body'])} {scheme_string(rw['summary'])}) (catch (e) #f)))",
             "(if *rb* (try (eval-current) (catch (e) #f)) #f)",
-            f"(go {n_post})",
-            '(define *t1* (hash-ref *w* "t"))',
-            "(define *e1* (energy *w*))",
-            "(if (and *rb* (= *t1* (+ *t0* " + str(n_post) + ")) (< *e1* *e0*))",
+            f"(try (go {n_post}) (catch (e) (set! *w* #f)))",
+            "(if (and *rb* *w*)",
             "  (begin",
+            '    (define *t1* (hash-ref *w* "t"))',
+            "    (define *e1* (energy *w*))",
+            '    (define *sat1* (num-or-false *w* "sat"))',
+            '    (define *x21* (num-or-false *w* "x2"))',
             f'    (display "WORLD_SAMPLE ")',
             "    (display (json-encode (hash \"id\" "
             + scheme_string(f"world-{plant['id']}-{rw['id']}")
+            + ' "plant" '
+            + scheme_string(plant["id"])
+            + ' "rewrite" '
+            + scheme_string(rw["id"])
             + ' "t0" *t0* "t1" *t1* "e0" *e0* "e1" *e1*',
-            '      "name" '
+            ' "sat0" *sat0* "sat1" *sat1* "x2_pre" *x20* "x2_post" *x21*',
+            ' "name" '
             + scheme_string(name)
             + ' "summary" '
             + scheme_string(rw["summary"])
@@ -257,37 +336,55 @@ def emit_twin_world_driver(plan: list[tuple[dict, dict, str]], n_pre: int = 40, 
             + scheme_string(rw["body"])
             + ")))",
             "    (newline))",
-            '  (begin (display "WORLD_DROP ") (display *e1*) (newline)))',
+            '  (begin (display "WORLD_DROP apply") (newline)))',
         ]
     lines.append("")
     return "\n".join(lines)
 
 
 def emit_session_world_driver(plan: list[tuple[dict, dict, str]], k: int = 8) -> str:
+    """Drive (tick book sess); print pre/post sess. quote-only is not identity."""
     lines = [";; world-mode session-hot"]
     for plant, rw, name in plan:
-        if name in ("*session*", "gate"):
+        frozen = list(plant.get("frozen") or ["*session*", "gate"])
+        if rw.get("keep") is False:
+            continue
+        if name in frozen or name in ("*session*", "gate"):
             continue
         lines += [
             f"(set-code {scheme_string(plant['source'])})",
             "(eval-current)",
-            '(define *sid* (hash-ref *session* "id"))',
-            '(define *sfd* (hash-ref *session* "fd"))',
-            '(define *sal* (hash-ref *session* "alive"))',
+            "(define *sess* *session*)",
+            '(define *book* (hash "bid" 1 "ask" 3 "mid" 2 "spread" 2))',
+            '(define *sid* (hash-ref *sess* "id"))',
+            '(define *sfd* (hash-ref *sess* "fd"))',
+            '(define *sal* (hash-ref *sess* "alive"))',
+            '(define *sseq* (try (hash-ref *sess* "seq") (catch (e) 0)))',
             f"(define *rb* (try (mutate:rebind {scheme_string(name)} {scheme_string(rw['body'])} {scheme_string(rw['summary'])}) (catch (e) #f)))",
             "(if *rb* (try (eval-current) (catch (e) #f)) #f)",
-            '(define *book* (hash "bid" 1 "ask" 3 "mid" 2 "spread" 2))',
-            "(define *qf* quote)",
             "(define *okq* #t)",
-            f"(define (go i) (if (<= i 0) #t (begin (try (*qf* *book*) (catch (e) (set! *okq* #f))) (go (- i 1)))))",
-            f"(go {k})",
-            "(define *sid2* (hash-ref *session* \"id\"))",
-            "(define *sfd2* (hash-ref *session* \"fd\"))",
-            "(define *sal2* (hash-ref *session* \"alive\"))",
+            "(define *out* #f)",
+            "(define (go i)",
+            "  (if (<= i 0) #t",
+            "    (begin",
+            "      (set! *out* (try (tick *book* *sess*) (catch (e) #f)))",
+            '      (if (and *out* (number? (hash-ref *out* "q")))',
+            '        (set! *sess* (hash-ref *out* "sess"))',
+            "        (set! *okq* #f))",
+            "      (go (- i 1)))))",
+            f"(if *rb* (try (go {k}) (catch (e) (set! *okq* #f))) #f)",
+            '(define *sid2* (hash-ref *sess* "id"))',
+            '(define *sfd2* (hash-ref *sess* "fd"))',
+            '(define *sal2* (hash-ref *sess* "alive"))',
+            '(define *sseq2* (try (hash-ref *sess* "seq") (catch (e) 0)))',
             "(if *rb*",
             "  (begin (display \"WORLD_SAMPLE \")",
             "    (display (json-encode (hash \"id\" "
             + scheme_string(f"world-{plant['id']}-{rw['id']}")
+            + ' "plant" '
+            + scheme_string(plant["id"])
+            + ' "rewrite" '
+            + scheme_string(rw["id"])
             + ' "name" '
             + scheme_string(name)
             + ' "summary" '
@@ -296,7 +393,9 @@ def emit_session_world_driver(plan: list[tuple[dict, dict, str]], k: int = 8) ->
             + scheme_string(plant["source"])
             + ' "body" '
             + scheme_string(rw["body"])
-            + ' "sid" *sid* "sfd" *sfd*)))',
+            + ' "sid" *sid* "sfd" *sfd* "sal" *sal* "sseq" *sseq*'
+            + ' "sid2" *sid2* "sfd2" *sfd2* "sal2" *sal2* "sseq2" *sseq2*'
+            + ' "okq" *okq*)))',
             "    (newline))",
             "  (begin (display \"WORLD_DROP session\") (newline)))",
         ]
@@ -310,10 +409,12 @@ def run_world(args: argparse.Namespace) -> int:
         print("error: --mode world requires --project twin-step|session-hot", file=sys.stderr)
         return 2
     plants, rewrites = load_project(pid)
+    rewrites = [rw for rw in rewrites if rw.get("keep") is not False]
     plan = project_pairs(plants, rewrites)[: args.rounds]
     if args.limit_rewrites:
         rewrites = rewrites[: args.limit_rewrites]
         plan = project_pairs(plants, rewrites)[: args.rounds]
+    plants_by_id = {p["id"]: p for p in plants}
     out_path = args.out if args.out != OUT else (
         ROOT / "data" / "raw" / f"farm-world-{pid}.jsonl"
     )
@@ -342,21 +443,42 @@ def run_world(args: argparse.Namespace) -> int:
             continue
         rec = json.loads(line[len("WORLD_SAMPLE ") :])
         name = rec.get("name")
-        frozen = ["step", "energy"] if pid == "twin-step" else ["*session*"]
+        plant = plants_by_id.get(rec.get("plant") or "") or {}
         if pid == "twin-step":
-            if not twin_should_keep(rec["t0"], rec["t1"], 40, rec["e0"], rec["e1"], name, frozen):
+            frozen = list(plant.get("frozen") or ["step", "energy"])
+            hot = list(plant.get("hot") or ["control"])
+            sat0 = _opt_num(rec.get("sat0"))
+            sat1 = _opt_num(rec.get("sat1"))
+            x2_pre = _opt_num(rec.get("x2_pre"))
+            x2_post = _opt_num(rec.get("x2_post"))
+            if not twin_should_keep(
+                rec["t0"],
+                rec["t1"],
+                40,
+                rec["e0"],
+                rec["e1"],
+                name,
+                frozen,
+                sat0=sat0,
+                sat1=sat1,
+                x2_pre=x2_pre,
+                x2_post=x2_post,
+            ):
                 drop += 1
                 continue
+            observe = {
+                "t": rec["t0"],
+                "energy": rec["e0"],
+                "hot": hot,
+                "frozen": frozen,
+            }
+            if sat0 is not None:
+                observe["sat"] = sat0
             sample = {
                 "id": rec["id"],
                 "input": {
                     "source": rec["source"],
-                    "observe": {
-                        "t": rec["t0"],
-                        "energy": rec["e0"],
-                        "hot": ["control"],
-                        "frozen": frozen,
-                    },
+                    "observe": observe,
                 },
                 "target": [
                     {"kind": "query", "op": "find", "name": name},
@@ -376,8 +498,25 @@ def run_world(args: argparse.Namespace) -> int:
                 },
             }
         else:
-            pre = {"id": rec["sid"], "fd": rec["sfd"], "alive": True}
-            if not session_should_keep(pre, pre, name):
+            frozen = list(plant.get("frozen") or ["*session*", "gate"])
+            hot = list(plant.get("hot") or ["tick"])
+            pre = {
+                "id": rec.get("sid"),
+                "fd": rec.get("sfd"),
+                "alive": bool(rec.get("sal", True)),
+                "seq": rec.get("sseq", 0),
+            }
+            post = {
+                "id": rec.get("sid2", rec.get("sid")),
+                "fd": rec.get("sfd2", rec.get("sfd")),
+                "alive": bool(rec.get("sal2", True)),
+                "seq": rec.get("sseq2", rec.get("sseq", 0)),
+            }
+            q_ok = rec.get("okq", True)
+            if q_ok is False:
+                drop += 1
+                continue
+            if not session_should_keep(pre, post, name, keep_flag=True, q_ok=True, k=8):
                 drop += 1
                 continue
             sample = {
@@ -386,8 +525,8 @@ def run_world(args: argparse.Namespace) -> int:
                     "source": rec["source"],
                     "observe": {
                         "session": pre,
-                        "hot": ["quote"],
-                        "frozen": ["*session*"],
+                        "hot": hot,
+                        "frozen": frozen,
                     },
                 },
                 "target": [

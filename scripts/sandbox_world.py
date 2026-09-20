@@ -105,7 +105,7 @@ CONTROLS: dict[str, Control] = {
     "p-x": lambda w: -float(w.get("x", w.get("x1", 0))),
     "pd": lambda w: -float(w.get("x", w.get("x1", 0))) - float(w.get("v", w.get("v1", 0))),
     "clip-u": lambda w: max(-1.0, min(1.0, -float(w.get("x", 0)) - float(w.get("v", 0)))),
-    "sign-damp": lambda w: 1.0 if float(w.get("v", 0)) < 0 else -1.0,
+    "sign-damp": lambda w: 2.0 if float(w.get("v", 0)) < 0 else -2.0,
 }
 
 

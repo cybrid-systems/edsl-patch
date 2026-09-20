@@ -46,7 +46,7 @@ TWIN_BODIES = {
     "p-x": "(lambda (world) (* -1 (hash-ref world \"x\")))",
     "pd": "(lambda (world) (+ (* -1 (hash-ref world \"x\")) (* -1 (hash-ref world \"v\"))))",
     "clip-u": "(lambda (world) (let ((u (+ (* -1 (hash-ref world \"x\")) (* -1 (hash-ref world \"v\"))))) (if (< u -1) -1 (if (< 1 u) 1 u))))",
-    "sign-damp": "(lambda (world) (if (< (hash-ref world \"v\") 0) 1 -1))",
+    "sign-damp": "(lambda (world) (if (< (hash-ref world \"v\") 0) 2 -2))",
 }
 
 

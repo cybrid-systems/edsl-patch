@@ -36,14 +36,81 @@ class WorldKeepTests(unittest.TestCase):
         self.assertFalse(twin_should_keep(40, 80, 40, 10.0, 3.0, "step", ["step"]))
         self.assertFalse(twin_should_keep(40, 80, 40, 1e12, 3.0, "control", ["step"]))
         self.assertFalse(twin_should_keep(40, 80, 40, 10.0, -1.0, "control", ["step"]))
+        # sat-plant + sign-damp: sat jumps every step
+        self.assertFalse(
+            twin_should_keep(40, 80, 40, 10.0, 3.0, "control", ["step"], sat0=0, sat1=40)
+        )
+        # mass-spring + pd: energy down, no sat
+        self.assertTrue(twin_should_keep(40, 80, 40, 50.0, 5.0, "control", ["step"]))
+        # two-mass: |x2| explode
+        self.assertFalse(
+            twin_should_keep(
+                40, 80, 40, 50.0, 5.0, "control", ["step"], x2_pre=-1.0, x2_post=100.0
+            )
+        )
 
     def test_session_keep_drop(self):
         from farm import session_should_keep
 
-        s = {"id": 1, "fd": 7, "alive": True}
-        self.assertTrue(session_should_keep(s, s, "quote"))
-        self.assertFalse(session_should_keep(s, {"id": 1, "fd": 7, "alive": False}, "quote"))
+        s = {"id": 1, "fd": 7, "alive": True, "seq": 0}
+        # tick clip-abs copies sess → keep
+        self.assertTrue(session_should_keep(s, s, "tick"))
+        self.assertTrue(session_should_keep(s, {**s, "seq": 1}, "tick"))
+        self.assertTrue(session_should_keep(s, {**s, "seq": 8}, "tick", k=8))
+        self.assertFalse(session_should_keep(s, {"id": 1, "fd": 7, "alive": False, "seq": 1}, "tick"))
         self.assertFalse(session_should_keep(s, s, "*session*"))
+        self.assertFalse(session_should_keep(s, s, "tick", keep_flag=False))
+        # jump-seq
+        self.assertFalse(session_should_keep(s, {**s, "seq": 5}, "tick"))
+        self.assertFalse(session_should_keep(s, s, "tick", q_ok=False))
+
+    def test_world_init_and_emit_skips_keep_false(self):
+        from farm import (
+            emit_session_world_driver,
+            emit_twin_world_driver,
+            world_init_aura,
+        )
+
+        sat = {
+            "id": "twin-step.sat-plant",
+            "source": '(define step (lambda (w u) (hash "sat" 1)))',
+            "frozen": ["step", "energy"],
+        }
+        two = {
+            "id": "twin-step.two-mass",
+            "source": '(define step (lambda (w u) (hash "x1" 1)))',
+            "frozen": ["step", "energy"],
+        }
+        self.assertIn("sat", world_init_aura(sat))
+        self.assertIn("x1", world_init_aura(two))
+        pd = {
+            "id": "twin-step.pd",
+            "body": "(lambda (world) 0)",
+            "summary": "pd",
+            "keep": True,
+        }
+        kill = {
+            "id": "session-hot.kill-alive",
+            "body": "(lambda (book sess) sess)",
+            "summary": "kill-alive",
+            "keep": False,
+        }
+        plant_s = {
+            "id": "session-hot.tick-hold",
+            "source": "(define tick (lambda (book sess) sess))",
+            "frozen": ["*session*", "gate"],
+        }
+        twin_src = emit_twin_world_driver([(sat, pd, "control"), (two, pd, "control")])
+        self.assertIn('"sat" 0', twin_src)
+        self.assertIn('"x1" 2', twin_src)
+        self.assertIn("sat0", twin_src)
+        sess_src = emit_session_world_driver(
+            [(plant_s, {"id": "session-hot.clip-abs", "body": "(lambda (book sess) sess)", "summary": "clip-abs"}, "tick"),
+             (plant_s, kill, "tick")]
+        )
+        self.assertIn("(tick *book* *sess*)", sess_src)
+        self.assertNotIn("kill-alive", sess_src)
+        self.assertNotIn("*qf*", sess_src)
 
 
 class FarmLegalTests(unittest.TestCase):
@@ -169,6 +236,38 @@ class FarmHostTests(unittest.TestCase):
                 prev = chain[i]["verify"]["expected_source"]
                 nxt = chain[i + 1]["input"]["source"]
                 self.assertTrue(sources_match(prev, nxt), f"chain {i}->{i+1}")
+
+    def test_world_twin_smoke_does_not_keep_all_rewrites(self):
+        import farm as farm_mod
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "farm-world.jsonl"
+            rc = farm_mod.main(
+                [
+                    "--mode",
+                    "world",
+                    "--project",
+                    "twin-step",
+                    "--rounds",
+                    "16",
+                    "--timeout",
+                    "90",
+                    "--out",
+                    str(out),
+                ]
+            )
+            self.assertIn(rc, (0, 1))
+            rows = []
+            if out.is_file():
+                rows = [json.loads(l) for l in out.read_text().splitlines() if l.strip()]
+            # 16 attempts cover mass-spring + sat-plant; conjunction must drop some
+            self.assertLess(len(rows), 16)
+            sat_sums = {
+                (r.get("target") or [{}])[-1].get("summary")
+                for r in rows
+                if "sat-plant" in (r.get("id") or "")
+            }
+            self.assertNotIn("sign-damp", sat_sums)
 
     def test_missing_name_is_observe_not_sample(self):
         driver = """

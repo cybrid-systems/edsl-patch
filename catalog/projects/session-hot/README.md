@@ -14,7 +14,14 @@ Runtime identity is the **sess value**, not the frozen `*session*` binding.
 
 ## Keep (farm)
 
-id, fd, alive identical; seq +0 or +1 only. q is a number every tick.
+`scripts/farm.py` `session_should_keep` after K=8 `(tick book sess)` hops:
+
+- apply ok; rewrite.keep is not false
+- `id`, `fd`, `alive` identical to the pre-patch snapshot
+- `seq` increased by 0, 1, or K (never jump)
+- `q` is a number every tick
+
+`kill-alive` / `swap-fd` / `jump-seq` drop from the positive farm.
 
 ## Negatives (`rewrites.neg.jsonl`, keep=false)
 
