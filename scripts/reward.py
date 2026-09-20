@@ -82,3 +82,58 @@ def reward_session(pre: dict[str, Any], post: dict[str, Any], action: dict[str, 
     else:
         comp["contract"] = 0.0
     return {"r": r, "components": comp, "cut": cut}
+
+
+def _arith_vals(obs: dict) -> list:
+    return list(obs.get("vals") or [])
+
+
+def reward_arith(
+    pre: dict[str, Any],
+    post: dict[str, Any],
+    action: dict[str, Any],
+    cfg: dict[str, Any],
+) -> dict[str, Any]:
+    """Numeric grid probe. Fail-closed on non-number outputs when expect is set."""
+    comp: dict[str, float] = {}
+    post_vals = _arith_vals(post)
+    pre_vals = _arith_vals(pre)
+    kind = action.get("kind")
+    if post.get("ok") is False or not post_vals:
+        comp["eval"] = _w(cfg, "eval_fail", -10.0)
+        r = comp["eval"]
+        if kind == "refuse":
+            comp["contract"] = _w(cfg, "refuse_correct", 2.0)
+            r += comp["contract"]
+        return {"r": r, "components": comp, "cut": "eval_fail"}
+    if any(v is None or v is False for v in post_vals):
+        comp["eval"] = _w(cfg, "eval_fail", -10.0)
+        r = comp["eval"]
+        if kind == "refuse":
+            comp["contract"] = _w(cfg, "refuse_correct", 2.0)
+            r += comp["contract"]
+        return {"r": r, "components": comp, "cut": "eval_fail"}
+    expect = post.get("expect")
+    if expect is None:
+        plant_id = post.get("plant") or pre.get("plant")
+        expect = ((cfg.get("plants") or {}).get(plant_id) or {}).get("expect")
+    r = 0.0
+    if expect:
+        n = min(len(post_vals), len(expect))
+        mse = 0.0
+        if n:
+            mse = sum((float(post_vals[i]) - float(expect[i])) ** 2 for i in range(n)) / n
+        comp["match"] = _w(cfg, "match", 5.0) / (1.0 + mse)
+        r += comp["match"]
+        cut = "" if mse < 1e-9 else "mismatch"
+    else:
+        n = max(len(post_vals), 1)
+        comp["eval"] = _w(cfg, "eval_ok", 1.0)
+        r += comp["eval"]
+        if pre_vals and post_vals != pre_vals:
+            comp["changed"] = _w(cfg, "changed", 0.3)
+            r += comp["changed"]
+        cut = ""
+    if kind == "refuse":
+        comp["contract"] = 0.0
+    return {"r": r, "components": comp, "cut": cut}

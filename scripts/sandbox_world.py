@@ -188,3 +188,59 @@ def observe_session(sess: World, epoch: int) -> dict[str, Any]:
         "frozen": ["*session*", "gate"],
         "epoch": epoch,
     }
+
+
+ARITH_FNS: dict[str, Callable[..., float]] = {
+    "plus1": lambda x: x + 1,
+    "plus2": lambda x: x + 2,
+    "plus3": lambda x: x + 3,
+    "plus4": lambda x: x + 4,
+    "plus5": lambda x: x + 5,
+    "minus1": lambda x: x - 1,
+    "minus2": lambda x: x - 2,
+    "negate": lambda x: -x,
+    "neg2": lambda x: x * -2,
+    "double": lambda x: x * 2,
+    "times3": lambda x: x * 3,
+    "times4": lambda x: x * 4,
+    "square": lambda x: x * x,
+    "sq": lambda x: x * x,
+    "abs": lambda x: abs(x),
+    "clamp0": lambda x: 0 if x < 0 else x,
+    "id": lambda x: x,
+    "zeroed": lambda x: 0,
+    "sum": lambda a, b: a + b,
+    "prod": lambda a, b: a * b,
+}
+
+ARITH_PLANTS: dict[str, dict[str, Any]] = {
+    "arith-core.p0": {"name": "f", "arity": 1, "fn": lambda x: x},
+    "arith-core.p1": {"name": "g", "arity": 1, "fn": lambda x: x + 1},
+    "arith-core.p3": {"name": "add", "arity": 2, "fn": lambda a, b: a},
+    "arith-core.p4": {"name": "f", "arity": 1, "fn": lambda x: 0},
+}
+
+
+def arith_grid_vals(fn: Callable, grid: list, arity: int) -> list:
+    out = []
+    for item in grid:
+        try:
+            if arity == 1:
+                out.append(float(fn(item)))
+            else:
+                a, b = item
+                out.append(float(fn(a, b)))
+        except Exception:
+            out.append(None)
+    return out
+
+
+def observe_arith(plant_id: str, vals: list, epoch: int, name: str) -> dict[str, Any]:
+    return {
+        "vals": vals,
+        "ok": all(v is not None for v in vals),
+        "plant": plant_id,
+        "hot": [name],
+        "frozen": [],
+        "epoch": epoch,
+    }

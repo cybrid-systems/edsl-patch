@@ -47,6 +47,25 @@ class RewardTwin(unittest.TestCase):
         self.assertIn("sat", rw["components"])
 
 
+class RewardArith(unittest.TestCase):
+    def setUp(self):
+        self.cfg = json.loads((ROOT / "catalog" / "rewards" / "arith-core.json").read_text())
+
+    def test_abs_matches_p0_expect(self):
+        pre = {"vals": [-3, -1, 0, 1, 2], "plant": "arith-core.p0"}
+        post = {"vals": [3, 1, 0, 1, 2], "plant": "arith-core.p0", "ok": True}
+        rw = R.reward_arith(pre, post, {"kind": "synthesis"}, self.cfg)
+        self.assertGreater(rw["r"], 4.0)
+        self.assertEqual(rw["cut"], "")
+
+    def test_eval_fail_hard(self):
+        pre = {"vals": [0], "plant": "arith-core.p0"}
+        post = {"vals": [None], "plant": "arith-core.p0", "ok": False}
+        rw = R.reward_arith(pre, post, {"kind": "synthesis"}, self.cfg)
+        self.assertEqual(rw["cut"], "eval_fail")
+        self.assertLess(rw["r"], 0)
+
+
 class RewardSession(unittest.TestCase):
     def setUp(self):
         self.cfg = json.loads((ROOT / "catalog" / "rewards" / "session-hot.json").read_text())
@@ -115,6 +134,37 @@ class Tree(unittest.TestCase):
             self.assertNotIn("mutate:rebind", code, rel)
             self.assertNotIn("eval-current", code, rel)
 
+    def test_reward_projects_discovered(self):
+        ids = RO.list_reward_projects()
+        self.assertIn("twin-step", ids)
+        self.assertIn("session-hot", ids)
+        self.assertIn("arith-core", ids)
+
+    def test_unknown_project_exits_2(self):
+        rc = RO.main(["--project", "no-such", "-o", str(ROOT / "data" / "raw" / "nope.jsonl")])
+        self.assertEqual(rc, 2)
+
+    def test_session_aura_driver_ticks(self):
+        src = RO.emit_aura_session_hop(
+            '(define *session* (hash "id" 1 "fd" 7 "alive" #t "seq" 0))\n(define tick (lambda (book sess) (hash "q" 0 "sess" sess)))',
+            None,
+            8,
+            [{"kind": "synthesis", "target": RO._patch("tick", "(lambda (book sess) (hash \"q\" 0 \"sess\" sess))", "flat-zero")}],
+            1,
+        )
+        self.assertIn("sandbox:tick-n", src)
+        self.assertIn("ast:snapshot", src)
+        self.assertNotIn("fiber:spawn", src)
+
+    def test_arith_dry_world_p0_prefers_abs(self):
+        cfg = json.loads((ROOT / "catalog" / "rewards" / "arith-core.json").read_text())
+        hops, traj = RO.rollout_arith(cfg, depth=1, forks=6, plant_id="arith-core.p0")
+        self.assertTrue(hops)
+        self.assertEqual(traj["project"], "arith-core")
+        by_sum = {h["target"][-1]["summary"]: h for h in hops if h["target"][-1].get("kind") == "synthesis"}
+        if "abs" in by_sum and "plus1" in by_sum:
+            self.assertGreater(by_sum["abs"]["reward"]["r"], by_sum["plus1"]["reward"]["r"])
+
     def test_twin_emits_hops_and_traj(self):
         cfg = json.loads((ROOT / "catalog" / "rewards" / "twin-step.json").read_text())
         hops, traj = RO.rollout_twin(cfg, depth=3, forks=4, plant="mass-spring")
@@ -164,6 +214,28 @@ class AuraHost(unittest.TestCase):
         self.assertTrue(hops)
         self.assertTrue(any(h.get("proposer") == "agent:ask" for h in hops))
         self.assertTrue(all(h["target"][-1].get("summary") != "not-in-catalog" for h in hops))
+
+    def test_session_smoke_observe_identity(self):
+        cfg = json.loads((ROOT / "catalog" / "rewards" / "session-hot.json").read_text())
+        hops, traj = RO.rollout_session_aura(cfg, depth=1, forks=2, plant="tick-hold")
+        self.assertTrue(hops)
+        self.assertEqual(traj.get("host"), "aura")
+        sess = hops[0]["input"]["observe"]["session"]
+        self.assertEqual(sess.get("id"), 1)
+        self.assertTrue(sess.get("alive"))
+        kills = [h for h in hops if h["id"].endswith("kill-alive")]
+        for h in kills:
+            self.assertFalse(h.get("sft"))
+        blob = json.dumps(hops)
+        self.assertNotIn("fiber:spawn", blob)
+        self.assertNotIn('"skip"', blob)
+
+    def test_arith_aura_grid(self):
+        cfg = json.loads((ROOT / "catalog" / "rewards" / "arith-core.json").read_text())
+        hops, traj = RO.rollout_arith_aura(cfg, depth=1, forks=3, plant_id="arith-core.p0")
+        self.assertTrue(hops)
+        self.assertEqual(traj.get("host"), "aura")
+        self.assertIn("vals", hops[0]["input"]["observe"])
 
 
 if __name__ == "__main__":

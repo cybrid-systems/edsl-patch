@@ -88,8 +88,13 @@ Do not train `restore` / `skip` / `yield` as targets. Snapshot restore is the **
 ```bash
 python3 scripts/rollout.py --project twin-step --depth 6 --forks 4 --rounds 8
 python3 scripts/rollout.py --host aura --project twin-step --depth 1 --forks 2 --rounds 1 --plant mass-spring
+python3 scripts/rollout.py --host aura --project session-hot --depth 1 --forks 2 --rounds 1 --plant tick-hold
+python3 scripts/rollout.py --project arith-core --depth 1 --forks 4 --rounds 1 --plant arith-core.p0
 python3 -m unittest tests.test_rollout_reward -v
 ```
+
+`--project` is any stem in `catalog/rewards/*.json` (`kind`: twin | session | arith).
+Unknown ids exit 2. arith-core hops export as **dialect**, not the 40/20 twin/session buckets.
 
 `--host dry-world` (default) runs the in-process Python stepper (no Aura binary) so rewards
 and tree cuts can be tested. `--host aura` plants, `ast:snapshot`s, rebinds, and steps via

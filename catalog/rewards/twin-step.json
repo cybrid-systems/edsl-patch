@@ -1,4 +1,5 @@
 {
+  "kind": "twin",
   "project": "twin-step",
   "n_pre": 40,
   "n_post": 40,

@@ -2,7 +2,8 @@
 ; Snapshot restore is sandbox plumbing, never an SFT restore label.
 ; Fork is ast:snapshot, not a CLI fiber. Mutate only via mutate:rebind on a hot name.
 
-(export sandbox:step-n sandbox:obs sandbox:tick-n sandbox:sess-obs)
+(export sandbox:step-n sandbox:obs sandbox:tick-n sandbox:sess-obs
+        sandbox:grid1 sandbox:grid2)
 
 (define (sandbox:step-n w n)
   (if (<= n 0) w
@@ -29,4 +30,16 @@
         "fd" (hash-ref sess "fd")
         "alive" (hash-ref sess "alive")
         "seq" (try (hash-ref sess "seq") (catch (e) 0))
-        "epoch" epoch))
+        "epoch" epoch
+        "sess" sess))
+
+(define (sandbox:grid1 fn xs)
+  (if (null? xs) (quote ())
+    (cons (try (fn (car xs)) (catch (e) #f))
+          (sandbox:grid1 fn (cdr xs)))))
+
+(define (sandbox:grid2 fn pairs)
+  (if (null? pairs) (quote ())
+    (let ((p (car pairs)))
+      (cons (try (fn (car p) (car (cdr p))) (catch (e) #f))
+            (sandbox:grid2 fn (cdr pairs))))))

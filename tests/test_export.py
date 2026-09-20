@@ -165,6 +165,38 @@ class ExportTests(unittest.TestCase):
         self.assertNotIn("traj-only", text)
         self.assertEqual(len([l for l in text.splitlines() if l.strip()]), 2)
 
+    def test_arith_rollout_hop_is_dialect(self):
+        from export_sft import bucket_of, drop_reason
+
+        sample = {
+            "id": "arith-hop",
+            "kind": "hop",
+            "sft": True,
+            "input": {
+                "source": "(define f (lambda (x) x))",
+                "intent": "arith grid; abs",
+                "observe": {"vals": [-3, -1, 0, 1, 2], "hot": ["f"], "epoch": 1},
+            },
+            "target": [
+                {"kind": "query", "op": "find", "name": "f"},
+                {"kind": "query", "op": "def-use", "name": "f"},
+                {
+                    "kind": "synthesis",
+                    "op": "rebind",
+                    "name": "f",
+                    "body": "(lambda (x) (if (< x 0) (* x -1) x))",
+                    "summary": "abs",
+                },
+            ],
+            "reward": {"r": 5.0, "advantage": 1.2},
+            "verify": {"apply_ok": True, "probes": {"arith_grid": True}},
+        }
+        self.assertIsNone(drop_reason(sample))
+        self.assertEqual(
+            bucket_of(ROOT / "data" / "raw" / "rollout-arith-core.jsonl", sample),
+            "dialect",
+        )
+
     def test_demo_observe_12_4_dropped(self):
         from export_sft import drop_reason
 
