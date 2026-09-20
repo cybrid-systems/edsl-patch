@@ -2,3 +2,9 @@
 {"id": "circ-dae.p1", "source": "(define edge (lambda (a b) (cons a b)))", "names": ["edge"], "project": "circ-dae"}
 {"id": "circ-dae.p2", "source": "(define eval-node (lambda (id) 0))", "names": ["eval-node"], "project": "circ-dae"}
 {"id": "circ-dae.p3", "source": "(define node (lambda (id) 0))", "names": ["node"], "project": "circ-dae"}
+{"id": "circ-dae.px0", "source": "(define node0 (lambda (id) id))", "names": ["node0"], "project": "circ-dae"}
+{"id": "circ-dae.px1", "source": "(define node1 (lambda (id) id))", "names": ["node1"], "project": "circ-dae"}
+{"id": "circ-dae.px2", "source": "(define node2 (lambda (id) id))", "names": ["node2"], "project": "circ-dae"}
+{"id": "circ-dae.px3", "source": "(define node3 (lambda (id) id))", "names": ["node3"], "project": "circ-dae"}
+{"id": "circ-dae.px4", "source": "(define node4 (lambda (id) id))", "names": ["node4"], "project": "circ-dae"}
+{"id": "circ-dae.px5", "source": "(define node5 (lambda (id) id))", "names": ["node5"], "project": "circ-dae"}

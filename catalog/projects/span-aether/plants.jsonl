@@ -2,3 +2,9 @@
 {"id": "span-aether.p1", "source": "(define len (lambda (n) n))", "names": ["len"], "project": "span-aether"}
 {"id": "span-aether.p2", "source": "(define clip (lambda (i n) i))", "names": ["clip"], "project": "span-aether"}
 {"id": "span-aether.p3", "source": "(define idx (lambda (i n) 0))", "names": ["idx"], "project": "span-aether"}
+{"id": "span-aether.px0", "source": "(define len0 (lambda (n) n))", "names": ["len0"], "project": "span-aether"}
+{"id": "span-aether.px1", "source": "(define len1 (lambda (n) n))", "names": ["len1"], "project": "span-aether"}
+{"id": "span-aether.px2", "source": "(define len2 (lambda (n) n))", "names": ["len2"], "project": "span-aether"}
+{"id": "span-aether.px3", "source": "(define len3 (lambda (n) n))", "names": ["len3"], "project": "span-aether"}
+{"id": "span-aether.px4", "source": "(define len4 (lambda (n) n))", "names": ["len4"], "project": "span-aether"}
+{"id": "span-aether.px5", "source": "(define len5 (lambda (n) n))", "names": ["len5"], "project": "span-aether"}

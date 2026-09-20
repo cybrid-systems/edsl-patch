@@ -2,3 +2,9 @@
 {"id": "orch-pure.p1", "source": "(define route (lambda (x y) x))", "names": ["route"], "project": "orch-pure"}
 {"id": "orch-pure.p2", "source": "(define merge (lambda (a b) a))", "names": ["merge"], "project": "orch-pure"}
 {"id": "orch-pure.p3", "source": "(define step (lambda (x) 0))", "names": ["step"], "project": "orch-pure"}
+{"id": "orch-pure.px0", "source": "(define step0 (lambda (x) x))", "names": ["step0"], "project": "orch-pure"}
+{"id": "orch-pure.px1", "source": "(define step1 (lambda (x) x))", "names": ["step1"], "project": "orch-pure"}
+{"id": "orch-pure.px2", "source": "(define step2 (lambda (x) x))", "names": ["step2"], "project": "orch-pure"}
+{"id": "orch-pure.px3", "source": "(define step3 (lambda (x) x))", "names": ["step3"], "project": "orch-pure"}
+{"id": "orch-pure.px4", "source": "(define step4 (lambda (x) x))", "names": ["step4"], "project": "orch-pure"}
+{"id": "orch-pure.px5", "source": "(define step5 (lambda (x) x))", "names": ["step5"], "project": "orch-pure"}

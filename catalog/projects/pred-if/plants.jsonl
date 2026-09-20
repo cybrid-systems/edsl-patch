@@ -2,3 +2,9 @@
 {"id": "pred-if.p1", "source": "(define p (lambda (x) (if (< x 0) x (* x -1))))", "names": ["p"], "project": "pred-if"}
 {"id": "pred-if.p2", "source": "(define p (lambda (x) x))", "names": ["p"], "project": "pred-if"}
 {"id": "pred-if.p3", "source": "(define q (lambda (x) (if (< x 1) 1 x)))", "names": ["q"], "project": "pred-if"}
+{"id": "pred-if.px0", "source": "(define p0 (lambda (x) (if (< x 0) 0 1)))", "names": ["p0"], "project": "pred-if"}
+{"id": "pred-if.px1", "source": "(define p1 (lambda (x) (if (< x 0) 0 1)))", "names": ["p1"], "project": "pred-if"}
+{"id": "pred-if.px2", "source": "(define p2 (lambda (x) (if (< x 0) 0 1)))", "names": ["p2"], "project": "pred-if"}
+{"id": "pred-if.px3", "source": "(define p3 (lambda (x) (if (< x 0) 0 1)))", "names": ["p3"], "project": "pred-if"}
+{"id": "pred-if.px4", "source": "(define p4 (lambda (x) (if (< x 0) 0 1)))", "names": ["p4"], "project": "pred-if"}
+{"id": "pred-if.px5", "source": "(define p5 (lambda (x) (if (< x 0) 0 1)))", "names": ["p5"], "project": "pred-if"}

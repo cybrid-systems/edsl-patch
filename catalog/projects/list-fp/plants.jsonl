@@ -2,3 +2,9 @@
 {"id": "list-fp.p1", "source": "(define head (lambda (xs) (if (null? xs) 0 (car xs))))", "names": ["head"], "project": "list-fp"}
 {"id": "list-fp.p2", "source": "(define tail (lambda (xs) (if (null? xs) (quote ()) (cdr xs))))", "names": ["tail"], "project": "list-fp"}
 {"id": "list-fp.p3", "source": "(define wrap (lambda (x) (cons x (quote ()))))", "names": ["wrap"], "project": "list-fp"}
+{"id": "list-fp.px0", "source": "(define len0 (lambda (xs) (if (null? xs) 0 1)))", "names": ["len0"], "project": "list-fp"}
+{"id": "list-fp.px1", "source": "(define len1 (lambda (xs) (if (null? xs) 0 1)))", "names": ["len1"], "project": "list-fp"}
+{"id": "list-fp.px2", "source": "(define len2 (lambda (xs) (if (null? xs) 0 1)))", "names": ["len2"], "project": "list-fp"}
+{"id": "list-fp.px3", "source": "(define len3 (lambda (xs) (if (null? xs) 0 1)))", "names": ["len3"], "project": "list-fp"}
+{"id": "list-fp.px4", "source": "(define len4 (lambda (xs) (if (null? xs) 0 1)))", "names": ["len4"], "project": "list-fp"}
+{"id": "list-fp.px5", "source": "(define len5 (lambda (xs) (if (null? xs) 0 1)))", "names": ["len5"], "project": "list-fp"}
