@@ -29,10 +29,13 @@ class ExportTests(unittest.TestCase):
 
     def test_illegal_not_exported(self):
         sample = json.loads(
-            (ROOT / "examples" / "illegal-eval.jsonl").read_text(encoding="utf-8")
+            (ROOT / "examples" / "legacy-control" / "poison-eval-rebind.jsonl").read_text(
+                encoding="utf-8"
+            )
         )
         with self.assertRaises(PatchError):
             to_sft(sample)
+        self.assertIs(sample.get("sft"), False)
 
     def test_farm_shaped_row_strips_verify(self):
         sample = {

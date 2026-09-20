@@ -28,11 +28,17 @@ class LegalTests(unittest.TestCase):
         sample = load_sample(ROOT / "examples" / "plus1-to-double.jsonl")
         self.assertEqual(sample["target"][-1]["summary"], "double")
 
-    def test_illegal_eval_refused(self):
+    def test_illegal_eval_is_refuse_gold(self):
         rec = read_jsonl(ROOT / "examples" / "illegal-eval.jsonl")[0]
+        validate_patch(rec["target"])
+        self.assertEqual(rec["target"][-1]["kind"], "refuse")
+
+    def test_poison_eval_rebind_rejected(self):
+        rec = read_jsonl(ROOT / "examples" / "legacy-control" / "poison-eval-rebind.jsonl")[0]
         with self.assertRaises(PatchError) as ctx:
             validate_patch(rec["target"])
         self.assertIn("eval", str(ctx.exception))
+        self.assertIs(rec.get("sft"), False)
 
     def test_synthesis_before_query_refused(self):
         with self.assertRaises(PatchError):
