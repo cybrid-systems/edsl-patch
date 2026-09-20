@@ -8,3 +8,23 @@
 {"id": "arith-core.id", "project": "arith-core", "name": "f", "body": "(lambda (x) x)", "summary": "id", "arity": 1}
 {"id": "arith-core.add-sum", "project": "arith-core", "name": "add", "body": "(lambda (a b) (+ a b))", "summary": "sum", "arity": 2}
 {"id": "arith-core.add-prod", "project": "arith-core", "name": "add", "body": "(lambda (a b) (* a b))", "summary": "prod", "arity": 2}
+{"id": "arith-core.plus3", "project": "arith-core", "name": "f", "body": "(lambda (x) (+ x 3))", "summary": "plus3", "arity": 1}
+{"id": "arith-core.plus4", "project": "arith-core", "name": "f", "body": "(lambda (x) (+ x 4))", "summary": "plus4", "arity": 1}
+{"id": "arith-core.plus5", "project": "arith-core", "name": "f", "body": "(lambda (x) (+ x 5))", "summary": "plus5", "arity": 1}
+{"id": "arith-core.minus1", "project": "arith-core", "name": "f", "body": "(lambda (x) (- x 1))", "summary": "minus1", "arity": 1}
+{"id": "arith-core.minus2", "project": "arith-core", "name": "f", "body": "(lambda (x) (- x 2))", "summary": "minus2", "arity": 1}
+{"id": "arith-core.times3", "project": "arith-core", "name": "f", "body": "(lambda (x) (* x 3))", "summary": "times3", "arity": 1}
+{"id": "arith-core.times4", "project": "arith-core", "name": "f", "body": "(lambda (x) (* x 4))", "summary": "times4", "arity": 1}
+{"id": "arith-core.square1", "project": "arith-core", "name": "f", "body": "(lambda (x) (* x x))", "summary": "sq", "arity": 1}
+{"id": "arith-core.neg2", "project": "arith-core", "name": "f", "body": "(lambda (x) (* x -2))", "summary": "neg2", "arity": 1}
+{"id": "arith-core.halfish", "project": "arith-core", "name": "f", "body": "(lambda (x) (- x x))", "summary": "zeroed", "arity": 1}
+{"id": "arith-core.incdec", "project": "arith-core", "name": "f", "body": "(lambda (x) (+ x 0))", "summary": "plus0", "arity": 1}
+{"id": "arith-core.abs2", "project": "arith-core", "name": "f", "body": "(lambda (x) (if (< x 0) (* x -1) x))", "summary": "abs2", "arity": 1}
+{"id": "arith-core.clamp1", "project": "arith-core", "name": "f", "body": "(lambda (x) (if (< x 1) 1 x))", "summary": "clamp1", "arity": 1}
+{"id": "arith-core.clamp2", "project": "arith-core", "name": "f", "body": "(lambda (x) (if (< x 2) 2 x))", "summary": "clamp2", "arity": 1}
+{"id": "arith-core.id2", "project": "arith-core", "name": "f", "body": "(lambda (x) (+ x 0))", "summary": "id2", "arity": 1}
+{"id": "arith-core.dbl2", "project": "arith-core", "name": "f", "body": "(lambda (x) (+ x x))", "summary": "dbl2", "arity": 1}
+{"id": "arith-core.cube", "project": "arith-core", "name": "f", "body": "(lambda (x) (* x (* x x)))", "summary": "cube", "arity": 1}
+{"id": "arith-core.pred", "project": "arith-core", "name": "f", "body": "(lambda (x) (- x 1))", "summary": "pred", "arity": 1}
+{"id": "arith-core.succ", "project": "arith-core", "name": "f", "body": "(lambda (x) (+ x 1))", "summary": "succ", "arity": 1}
+{"id": "arith-core.negplus", "project": "arith-core", "name": "f", "body": "(lambda (x) (+ (* x -1) 0))", "summary": "negplus", "arity": 1}

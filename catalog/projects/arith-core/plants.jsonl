@@ -3,3 +3,15 @@
 {"id": "arith-core.p2", "source": "(define pad (lambda (x) x))\n(define f (lambda (x) (pad x)))", "names": ["f"], "project": "arith-core"}
 {"id": "arith-core.p3", "source": "(define add (lambda (a b) a))", "names": ["add"], "project": "arith-core"}
 {"id": "arith-core.p4", "source": "(define (f x) 0)", "names": ["f"], "project": "arith-core"}
+{"id": "arith-core.px0", "source": "(define f0 (lambda (x) x))", "names": ["f0"], "project": "arith-core"}
+{"id": "arith-core.px1", "source": "(define f1 (lambda (x) x))", "names": ["f1"], "project": "arith-core"}
+{"id": "arith-core.px2", "source": "(define f2 (lambda (x) x))", "names": ["f2"], "project": "arith-core"}
+{"id": "arith-core.px3", "source": "(define f3 (lambda (x) x))", "names": ["f3"], "project": "arith-core"}
+{"id": "arith-core.px4", "source": "(define f4 (lambda (x) x))", "names": ["f4"], "project": "arith-core"}
+{"id": "arith-core.px5", "source": "(define f5 (lambda (x) x))", "names": ["f5"], "project": "arith-core"}
+{"id": "arith-core.px6", "source": "(define f6 (lambda (x) x))", "names": ["f6"], "project": "arith-core"}
+{"id": "arith-core.px7", "source": "(define f7 (lambda (x) x))", "names": ["f7"], "project": "arith-core"}
+{"id": "arith-core.px8", "source": "(define f8 (lambda (x) x))", "names": ["f8"], "project": "arith-core"}
+{"id": "arith-core.px9", "source": "(define f9 (lambda (x) x))", "names": ["f9"], "project": "arith-core"}
+{"id": "arith-core.px10", "source": "(define f10 (lambda (x) x))", "names": ["f10"], "project": "arith-core"}
+{"id": "arith-core.px11", "source": "(define f11 (lambda (x) x))", "names": ["f11"], "project": "arith-core"}
