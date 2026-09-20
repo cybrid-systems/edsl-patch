@@ -144,11 +144,25 @@ def run_aura_program(src: str, *, timeout: int = 30) -> str:
 
 
 def twin_probes(post_source: str, n: int = 40, world: dict | None = None) -> dict:
-    world = world or {"x": 2, "v": 1, "t": 0}
+    if world is not None:
+        wform = (
+            "(hash "
+            + " ".join(
+                f'{json.dumps(str(k))} {world[k]}' if not isinstance(world[k], str) else f'{json.dumps(str(k))} {json.dumps(world[k])}'
+                for k in world
+            )
+            + ")"
+        )
+    elif '"pos"' in post_source:
+        wform = '(hash "pos" 2 "vel" 1 "t" 0)'
+    elif '"x1"' in post_source:
+        wform = '(hash "x1" 2 "v1" 1 "x2" -1 "v2" 0 "t" 0)'
+    else:
+        wform = '(hash "x" 2 "v" 1 "t" 0)'
     prog = "\n".join(
         [
             post_source,
-            f'(define *w* (hash "x" {world["x"]} "v" {world["v"]} "t" {world["t"]}))',
+            f"(define *w* {wform})",
             "(define *n* 0)",
             "(define (go k)",
             "  (if (<= k 0) *w*",
@@ -167,9 +181,26 @@ def twin_probes(post_source: str, n: int = 40, world: dict | None = None) -> dic
 
 
 def session_probes(post_source: str, k: int = 8) -> dict:
-    prog = "\n".join(
-        [
-            post_source,
+    use_tick = "define tick" in post_source or "(define (tick" in post_source
+    if use_tick:
+        drive = [
+            '(define *book* (hash "bid" 1 "ask" 3 "mid" 2 "spread" 2 "last" 4 "size" 1))',
+            "(define *sess* *session*)",
+            "(define *out* #f)",
+            "(define (go i)",
+            "  (if (<= i 0) #t",
+            "    (begin (set! *out* (tick *book* *sess*))",
+            '      (set! *sess* (hash-ref *out* "sess"))',
+            "      (go (- i 1)))))",
+            f"(go {int(k)})",
+            '(display "PROBE ")',
+            '(display (json-encode (hash "id" (hash-ref *sess* "id")',
+            ' "fd" (hash-ref *sess* "fd")',
+            ' "alive" (hash-ref *sess* "alive"))))',
+            "(newline)",
+        ]
+    else:
+        drive = [
             '(define *book* (hash "bid" 1 "ask" 3 "mid" 2 "spread" 2))',
             "(define *qs* '())",
             f"(define *k* {int(k)})",
@@ -184,7 +215,7 @@ def session_probes(post_source: str, k: int = 8) -> dict:
             ' "alive" (hash-ref *session* "alive"))))',
             "(newline)",
         ]
-    )
+    prog = "\n".join([post_source] + drive)
     out = run_aura_program(prog)
     for line in out.splitlines():
         if line.startswith("PROBE "):

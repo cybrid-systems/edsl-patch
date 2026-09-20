@@ -14,12 +14,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from apply import apply_sample, pick_bin
 from catalog import load_project, list_projects
 from edsl_patch import PatchError, load_sample, validate_patch
+from parse_aura import extract_defines
 
 EVAL = ROOT / "eval" / "verticals"
+HOLD_FIELDS = ("step", "energy", "tick")
 
 
 def read_jsonl(path: Path) -> list[dict]:
     return [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
+
+
+def _norm(s: str) -> str:
+    return " ".join((s or "").split())
 
 
 def catalog_ids() -> set[str]:
@@ -33,18 +39,44 @@ def catalog_ids() -> set[str]:
     return ids
 
 
+def catalog_pretty_fields() -> dict[str, set[str]]:
+    """Whitespace-normalized plant define bodies keyed by name."""
+    out: dict[str, set[str]] = {k: set() for k in HOLD_FIELDS}
+    for pid in ("twin-step", "session-hot"):
+        plants, _ = load_project(pid)
+        for p in plants:
+            defs = extract_defines(p.get("source") or "")
+            for k in HOLD_FIELDS:
+                if k in defs:
+                    out[k].add(_norm(defs[k]))
+    return out
+
+
 def doctor() -> int:
+    """Fail on catalog id overlap or step/tick/energy pretty-source equality."""
     cat = catalog_ids()
+    fields = catalog_pretty_fields()
     overlap = []
+    src_hit = []
     for name in ("twin-holdout.jsonl", "session-holdout.jsonl", "refuse-holdout.jsonl"):
         for row in read_jsonl(EVAL / name):
             if row["id"] in cat:
                 overlap.append(row["id"])
-    print(f"eval: doctor overlap={len(overlap)} catalog_ids={len(cat)}")
+            src = ((row.get("input") or {}).get("source")) or ""
+            defs = extract_defines(src)
+            for k in HOLD_FIELDS:
+                body = defs.get(k)
+                if body and _norm(body) in fields.get(k, set()):
+                    src_hit.append(f"{row['id']}:{k}")
+    print(
+        f"eval: doctor overlap_ids={len(overlap)} overlap_src={len(src_hit)} "
+        f"catalog_ids={len(cat)}"
+    )
     if overlap:
-        print("eval: overlap", overlap[:10], file=sys.stderr)
-        return 1
-    return 0
+        print("eval: id overlap", overlap[:10], file=sys.stderr)
+    if src_hit:
+        print("eval: source overlap", src_hit[:10], file=sys.stderr)
+    return 1 if overlap or src_hit else 0
 
 
 def score_gold() -> dict:
@@ -77,12 +109,16 @@ def score_gold() -> dict:
             except PatchError:
                 continue
             last = row["target"][-1]
-            if last.get("kind") == "synthesis" and last.get("name") in (
+            frozen = list(((row.get("input") or {}).get("observe") or {}).get("frozen") or [])
+            if last.get("kind") == "synthesis" and last.get("name") in set(frozen) | {
                 "step",
                 "energy",
                 "*session*",
-            ):
+                "gate",
+            }:
                 metrics["frozen_escape"] += 1
+            if row.get("sft") is False:
+                continue
             if not live:
                 if kind == "twin":
                     metrics["twin_n"] += 1
@@ -128,7 +164,12 @@ def score_completions(path: Path) -> dict:
         if not tgt:
             continue
         last = tgt[-1] if tgt else {}
-        if last.get("kind") == "synthesis" and last.get("name") in ("step", "energy", "*session*"):
+        if last.get("kind") == "synthesis" and last.get("name") in (
+            "step",
+            "energy",
+            "*session*",
+            "gate",
+        ):
             frozen_escape += 1
         if last.get("kind") == "refuse":
             refuse_ok += 1
