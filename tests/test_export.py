@@ -34,6 +34,33 @@ class ExportTests(unittest.TestCase):
         with self.assertRaises(PatchError):
             to_sft(sample)
 
+    def test_farm_shaped_row_strips_verify(self):
+        sample = {
+            "id": "farm-id-f-plus1-f",
+            "input": {"source": "(define f (lambda (x) x))"},
+            "target": [
+                {"kind": "query", "op": "find", "name": "f"},
+                {"kind": "query", "op": "def-use", "name": "f"},
+                {
+                    "kind": "synthesis",
+                    "op": "rebind",
+                    "name": "f",
+                    "body": "(lambda (x) (+ x 1))",
+                    "summary": "plus1",
+                },
+            ],
+            "verify": {
+                "apply_ok": True,
+                "expected_source": "(define f (lambda (x) (+ x 1)))",
+            },
+        }
+        row = to_sft(sample)
+        self.assertNotIn("verify", row)
+        target = json.loads(row["messages"][2]["content"])
+        self.assertIsInstance(target, list)
+        self.assertEqual(target[-1]["op"], "rebind")
+        self.assertEqual(target[-1]["summary"], "plus1")
+
 
 if __name__ == "__main__":
     unittest.main()

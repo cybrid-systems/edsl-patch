@@ -43,7 +43,7 @@ One model output = one JSON **array**.
 | ingest | `scripts/ingest.py` | `verified.jsonl` |
 | teach | `scripts/teach.py` | `teacher.jsonl` |
 | collect | `scripts/collect.py` | `business.jsonl` |
-| farm | `scripts/farm.py` (planned until #5) | `farm.jsonl` |
+| farm | `scripts/farm.py` | `farm.jsonl` |
 
 ## Session budget
 

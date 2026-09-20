@@ -40,11 +40,12 @@ edsl-patch/
 ├── schema/apply.md     # host apply I/O
 ├── schema/collect.md   # git harvest from Unify KV / spans
 ├── lessons/            # teacher seeds (source_0 + source_1 intent)
+├── catalog/            # L0 plants + L1 rewrites; catalog/projects/ budget
+├── lib/farm.aura       # in-process star-mode plant/query/rebind
 ├── lib/teacher.aura    # namer / binder / helper agents (no mutate)
 ├── examples/           # apply-verified goldens
-├── catalog/projects/   # typed plants + session budget
-├── scripts/            # apply / ingest / teach / collect / export_sft / farm_budget
-└── tests/              # legal + apply + teacher fanout + budget
+├── scripts/            # apply / ingest / teach / collect / farm / export_sft
+└── tests/              # legal + apply + teacher + farm + budget
 ```
 
 ## Apply (host)
@@ -63,7 +64,8 @@ python3 -m unittest discover -s tests -v
 python3 scripts/ingest.py                  # cartesian catalog → data/raw/verified.jsonl
 python3 scripts/teach.py                   # teacher lessons + multi-agent variants
 python3 scripts/collect.py                 # real Unify KV / span git rebinds (incremental)
-python3 scripts/export_sft.py data/raw/business.jsonl data/raw/teacher.jsonl data/raw/verified.jsonl
+python3 scripts/farm.py --rounds 24        # star-mode control transforms → data/raw/farm.jsonl
+python3 scripts/export_sft.py data/raw/business.jsonl data/raw/teacher.jsonl data/raw/verified.jsonl data/raw/farm.jsonl
 ```
 
 A `rebind` patch is:
@@ -74,6 +76,8 @@ A `rebind` patch is:
 ```
 
 Decide / persist / restore stay Strand meanings and are **not** v1 training targets. Poison must not become a positive synthesis label.
+
+Farm samples are star-mode control transforms (`lib/farm.aura`). Git harvest stays `collect.py`. Teacher workers still do not mutate.
 
 ## Grok Build
 
