@@ -92,6 +92,26 @@ class RewardKv(unittest.TestCase):
         self.assertEqual(rw["cut"], "")
 
 
+class RewardFp(unittest.TestCase):
+    def setUp(self):
+        self.cfg = json.loads((ROOT / "catalog" / "rewards" / "list-fp.json").read_text())
+
+    def test_len_one_beats_empty(self):
+        pre = {"vals": [0, 1], "plant": "list-fp.p0"}
+        good = {"vals": [0, 1], "plant": "list-fp.p0", "ok": True, "expect": [0, 1]}
+        bad = {"vals": [0, 0], "plant": "list-fp.p0", "ok": True, "expect": [0, 1]}
+        self.assertGreater(
+            R.reward_kv(pre, good, {"kind": "synthesis"}, self.cfg)["r"],
+            R.reward_kv(pre, bad, {"kind": "synthesis"}, self.cfg)["r"],
+        )
+
+    def test_wrap_cons_one(self):
+        post = {"vals": [1, 7], "plant": "list-fp.p3", "ok": True, "expect": [1, 7]}
+        rw = R.reward_kv({}, post, {"kind": "synthesis"}, self.cfg)
+        self.assertGreater(rw["r"], 4.0)
+        self.assertEqual(rw["cut"], "")
+
+
 class RewardSession(unittest.TestCase):
     def setUp(self):
         self.cfg = json.loads((ROOT / "catalog" / "rewards" / "session-hot.json").read_text())
@@ -166,6 +186,7 @@ class Tree(unittest.TestCase):
         self.assertIn("session-hot", ids)
         self.assertIn("arith-core", ids)
         self.assertIn("kv-mini", ids)
+        self.assertIn("list-fp", ids)
 
     def test_unknown_project_exits_2(self):
         rc = RO.main(["--project", "no-such", "-o", str(ROOT / "data" / "raw" / "nope.jsonl")])
@@ -218,6 +239,31 @@ class Tree(unittest.TestCase):
         }
         self.assertIn("put-cons", by_sum)
         self.assertGreater(by_sum["put-cons"]["reward"]["r"], 4.0)
+
+    def test_fp_dry_world_vacuous_len_loses(self):
+        cfg = json.loads((ROOT / "catalog" / "rewards" / "list-fp.json").read_text())
+        hops, traj = RO.rollout_fp(cfg, depth=1, forks=6, plant_id="list-fp.p0")
+        self.assertTrue(hops)
+        self.assertEqual(traj["project"], "list-fp")
+        def hop_key(h):
+            last = h["target"][-1]
+            return last.get("summary") or last.get("why")
+
+        by_sum = {hop_key(h): h for h in hops}
+        if "len-empty" in by_sum and "hold-fp" in by_sum:
+            self.assertGreater(
+                by_sum["hold-fp"]["reward"]["r"], by_sum["len-empty"]["reward"]["r"]
+            )
+        if "len-empty" in by_sum:
+            self.assertLess(by_sum["len-empty"]["reward"]["r"], 5.0)
+
+    def test_fp_wrap_cons_empty_loses(self):
+        cfg = json.loads((ROOT / "catalog" / "rewards" / "list-fp.json").read_text())
+        hops, traj = RO.rollout_fp(cfg, depth=1, forks=4, plant_id="list-fp.p3")
+        self.assertTrue(hops)
+        by_sum = {h["target"][-1].get("summary"): h for h in hops}
+        if "cons-empty" in by_sum:
+            self.assertLess(by_sum["cons-empty"]["reward"]["r"], 5.0)
 
     def test_twin_emits_hops_and_traj(self):
         cfg = json.loads((ROOT / "catalog" / "rewards" / "twin-step.json").read_text())
@@ -304,6 +350,13 @@ class AuraHost(unittest.TestCase):
         }
         if "get-eq" in by_sum:
             self.assertGreater(by_sum["get-eq"]["reward"]["r"], 0)
+
+    def test_fp_aura_len(self):
+        cfg = json.loads((ROOT / "catalog" / "rewards" / "list-fp.json").read_text())
+        hops, traj = RO.rollout_fp_aura(cfg, depth=1, forks=3, plant_id="list-fp.p0")
+        self.assertTrue(hops)
+        self.assertEqual(traj.get("host"), "aura")
+        self.assertIn("vals", hops[0]["input"]["observe"])
 
 
 if __name__ == "__main__":

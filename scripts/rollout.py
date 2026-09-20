@@ -188,6 +188,24 @@ def propose_kv(plant: dict, rewrites: list[dict], k: int) -> list[dict]:
     return props
 
 
+def propose_fp(plant: dict, rewrites: list[dict], k: int) -> list[dict]:
+    names = set(plant.get("hot") or plant.get("names") or [])
+    filtered = [
+        rw
+        for rw in rewrites
+        if not rw.get("name") or rw.get("name") in names
+    ]
+    props = propose_arith(plant, filtered, k)
+    name = (plant.get("hot") or plant.get("names") or ["len"])[0]
+    if props and props[-1].get("kind") == "refuse":
+        props[-1] = {
+            "kind": "refuse",
+            "summary": "hold-fp",
+            "target": _refuse(name, "hold-fp"),
+        }
+    return props
+
+
 def _world_form(world: dict) -> str:
     parts = []
     for k, v in world.items():
@@ -372,6 +390,59 @@ def emit_aura_kv_hop(
         form = f"(sandbox:kv-get {name})"
     lines = [
         ";; rollout --host aura kv hop",
+        '(require "sandbox" all:)',
+        f"(set-code {scheme_string(source)})",
+        "(eval-current)",
+        '(display "EDSL_OBS ")',
+        f"(display (json-encode (hash \"epoch\" {int(epoch)} \"vals\" {form})))",
+        "(newline)",
+        '(define *snap* (try (ast:snapshot "rollout") (catch (e) -1)))',
+        "(define *rb* #f)",
+        "(define *vs* #f)",
+    ]
+    for i, p in enumerate(props):
+        lines += [
+            f"(define *fi* {i})",
+            "(if (and (number? *snap*) (>= *snap* 0)) (try (ast:restore *snap*) (catch (e) #f)) #f)",
+            "(try (eval-current) (catch (e) #f))",
+        ]
+        if p.get("kind") == "synthesis":
+            tgt = p["target"][-1]
+            lines += [
+                f"(set! *rb* (try (mutate:rebind {scheme_string(tgt['name'])} {scheme_string(tgt['body'])} {scheme_string(tgt['summary'])}) (catch (e) #f)))",
+                "(if *rb* (try (eval-current) (catch (e) #f)) #f)",
+            ]
+        else:
+            lines += ["(set! *rb* #t)"]
+        lines += [
+            f"(set! *vs* (if *rb* (try {form} (catch (e) #f)) #f))",
+            "(if *vs*",
+            "  (begin",
+            '    (display "EDSL_FORK ")',
+            f"    (display (json-encode (hash \"i\" *fi* \"ok\" #t \"obs\" (hash \"epoch\" {int(epoch)} \"vals\" *vs*))))",
+            "    (newline))",
+            '  (begin (display "EDSL_FORK ") (display (json-encode (hash "i" *fi* "ok" #f))) (newline)))',
+        ]
+    lines.append("")
+    return "\n".join(lines)
+
+
+def emit_aura_fp_hop(
+    source: str,
+    name: str,
+    probe: str,
+    props: list[dict],
+    epoch: int,
+) -> str:
+    """One hop: snapshot, sibling rebinds, len/head/tail/wrap probes."""
+    fn = {
+        "head": "sandbox:fp-head",
+        "tail": "sandbox:fp-tail",
+        "wrap": "sandbox:fp-wrap",
+    }.get(probe, "sandbox:fp-len")
+    form = f"({fn} {name})"
+    lines = [
+        ";; rollout --host aura list-fp hop",
         '(require "sandbox" all:)',
         f"(set-code {scheme_string(source)})",
         "(eval-current)",
@@ -1222,6 +1293,212 @@ def rollout_kv_aura(cfg: dict, depth: int, forks: int, plant_id: str) -> tuple[l
     return hops, traj
 
 
+def _fp_cfg(cfg: dict, plant_id: str) -> tuple[str, list | None]:
+    row = (cfg.get("plants") or {}).get(plant_id) or {}
+    return str(row.get("probe") or "len"), row.get("expect")
+
+
+def rollout_fp(cfg: dict, depth: int, forks: int, plant_id: str) -> tuple[list[dict], dict]:
+    from catalog import load_project
+
+    plants, rewrites = load_project("list-fp")
+    spec = next((p for p in plants if p["id"] == plant_id or plant_id in p["id"]), plants[0])
+    plant_id = spec["id"]
+    meta = W.FP_PLANTS.get(plant_id)
+    if not meta:
+        return [], {
+            "id": f"traj-{plant_id}",
+            "kind": "traj",
+            "project": "list-fp",
+            "cut": "no-plant",
+            "hops": [],
+        }
+    name, probe, fn = meta["name"], meta["probe"], meta["fn"]
+    cfg_probe, expect = _fp_cfg(cfg, plant_id)
+    probe = cfg_probe or probe
+    hops: list[dict] = []
+    parent = "root"
+    cut = "depth"
+    traj_id = f"traj-{plant_id}"
+    current_fn = fn
+    for hop in range(1, depth + 1):
+        pre_vals = W.fp_probe_vals(current_fn, probe)
+        obs = W.observe_fp(plant_id, pre_vals, hop, name)
+        if expect is not None:
+            obs["expect"] = expect
+        props = propose_fp(spec, rewrites, forks)
+        scored = []
+        for i, p in enumerate(props):
+            if p["kind"] == "refuse":
+                nxt_fn = current_fn
+            else:
+                nxt_fn = W.FP_FNS.get(p["summary"])
+                if nxt_fn is None:
+                    continue
+            post_vals = W.fp_probe_vals(nxt_fn, probe)
+            post = W.observe_fp(plant_id, post_vals, hop, name)
+            if expect is not None:
+                post["expect"] = expect
+            rw = R.reward_kv(obs, post, p, cfg)
+            scored.append((p, nxt_fn, post, rw, f"{parent}.{i}"))
+        if not scored:
+            cut = "empty"
+            break
+        adv = _adv([s[3]["r"] for s in scored])
+        best_i = max(range(len(scored)), key=lambda i: scored[i][3]["r"])
+        for i, (p, nxt_fn, post, rw, fid) in enumerate(scored):
+            sft = adv[i] > float(cfg.get("advantage_min", 0.0)) and rw.get("cut") != "eval_fail"
+            hops.append(
+                {
+                    "id": f"{traj_id}-h{hop}-{p['summary']}",
+                    "kind": "hop",
+                    "fork_id": fid,
+                    "parent_id": parent,
+                    "hop": hop,
+                    "input": {
+                        "source": spec["source"],
+                        "intent": f"list-fp {probe}; {p['summary']}",
+                        "observe": {k: v for k, v in obs.items() if k != "expect"},
+                    },
+                    "target": p["target"],
+                    "reward": {"r": rw["r"], "advantage": adv[i], "components": rw["components"]},
+                    "verify": {"apply_ok": True, "probes": {"fp_struct": True}},
+                    "sft": sft,
+                }
+            )
+        best = scored[best_i]
+        if best[3].get("cut") == "eval_fail":
+            cut = "eval_fail"
+            break
+        if best[0]["kind"] == "refuse" and hop > 1:
+            cut = "refuse"
+            break
+        if best[0]["kind"] == "synthesis":
+            current_fn = best[1]
+        parent = best[4]
+    traj = {
+        "id": traj_id,
+        "kind": "traj",
+        "project": "list-fp",
+        "plant": plant_id,
+        "hops": [h["id"] for h in hops],
+        "return": sum(h["reward"]["r"] for h in hops if h.get("sft")),
+        "cut": cut,
+    }
+    return hops, traj
+
+
+def rollout_fp_aura(cfg: dict, depth: int, forks: int, plant_id: str) -> tuple[list[dict], dict]:
+    from catalog import load_project
+    from farm import run_aura
+    from apply import apply_patch
+
+    plants, rewrites = load_project("list-fp")
+    spec = next((p for p in plants if p["id"] == plant_id or plant_id in p["id"]), plants[0])
+    plant_id = spec["id"]
+    meta = W.FP_PLANTS.get(plant_id) or {"name": (spec.get("names") or ["len"])[0], "probe": "len"}
+    name = meta["name"]
+    probe, expect = _fp_cfg(cfg, plant_id)
+    probe = probe or meta.get("probe") or "len"
+    source = spec["source"]
+    hops: list[dict] = []
+    parent = "root"
+    cut = "depth"
+    traj_id = f"traj-aura-{plant_id}"
+    for hop in range(1, depth + 1):
+        props = propose_fp(spec, rewrites, forks)
+        driver = emit_aura_fp_hop(source, name, probe, props, hop)
+        raw = run_aura(driver, timeout=45)
+        obs_raw, fork_rows = _parse_aura_hop(raw)
+        if not obs_raw:
+            cut = "aura"
+            break
+        obs = {
+            "vals": obs_raw.get("vals") or [],
+            "ok": True,
+            "plant": plant_id,
+            "hot": [name],
+            "frozen": [],
+            "epoch": hop,
+            "probe": probe,
+        }
+        if expect is not None:
+            obs["expect"] = expect
+        scored = []
+        for i, p in enumerate(props):
+            fr = next((f for f in fork_rows if f.get("i") == i), None)
+            if not fr or not fr.get("ok"):
+                continue
+            post_raw = fr.get("obs") or {}
+            post = {
+                "vals": post_raw.get("vals") or [],
+                "ok": True,
+                "plant": plant_id,
+                "hot": [name],
+                "frozen": [],
+                "epoch": hop,
+                "probe": probe,
+            }
+            if expect is not None:
+                post["expect"] = expect
+            rw = R.reward_kv(obs, post, p, cfg)
+            scored.append((p, post, rw, f"{parent}.{i}"))
+        if not scored:
+            cut = "aura"
+            break
+        adv = _adv([s[2]["r"] for s in scored])
+        best_i = max(range(len(scored)), key=lambda i: scored[i][2]["r"])
+        obs_out = {k: v for k, v in obs.items() if k != "expect"}
+        for i, (p, post, rw, fid) in enumerate(scored):
+            sft = adv[i] > float(cfg.get("advantage_min", 0.0)) and rw.get("cut") != "eval_fail"
+            hops.append(
+                {
+                    "id": f"{traj_id}-h{hop}-{p['summary']}",
+                    "kind": "hop",
+                    "fork_id": fid,
+                    "parent_id": parent,
+                    "hop": hop,
+                    "input": {
+                        "source": source,
+                        "intent": f"list-fp {probe}; {p['summary']}",
+                        "observe": obs_out,
+                    },
+                    "target": p["target"],
+                    "reward": {"r": rw["r"], "advantage": adv[i], "components": rw["components"]},
+                    "verify": {"apply_ok": True, "probes": {"fp_struct": True}},
+                    "sft": sft,
+                    "host": "aura",
+                }
+            )
+        best = scored[best_i]
+        if best[2].get("cut") == "eval_fail":
+            cut = "eval_fail"
+            break
+        if best[0]["kind"] == "refuse" and hop > 1:
+            cut = "refuse"
+            break
+        if best[0]["kind"] == "synthesis":
+            try:
+                res = apply_patch(source, best[0]["target"])
+                if res.get("ok") and res.get("source"):
+                    source = res["source"]
+            except Exception:
+                cut = "apply"
+                break
+        parent = best[3]
+    traj = {
+        "id": traj_id,
+        "kind": "traj",
+        "project": "list-fp",
+        "plant": plant_id,
+        "host": "aura",
+        "hops": [h["id"] for h in hops],
+        "return": sum(h["reward"]["r"] for h in hops if h.get("sft")),
+        "cut": cut,
+    }
+    return hops, traj
+
+
 def main(argv: list[str] | None = None) -> int:
     known = list_reward_projects()
     ap = argparse.ArgumentParser()
@@ -1298,6 +1575,13 @@ def main(argv: list[str] | None = None) -> int:
                     hops, traj = rollout_kv_aura(cfg, args.depth, args.forks, plant)
                 else:
                     hops, traj = rollout_kv(cfg, args.depth, args.forks, plant)
+            elif kind == "fp":
+                fp_plants = list(W.FP_PLANTS.keys())
+                plant = args.plant if args.plant in W.FP_PLANTS else fp_plants[rnd % len(fp_plants)]
+                if args.host == "aura":
+                    hops, traj = rollout_fp_aura(cfg, args.depth, args.forks, plant)
+                else:
+                    hops, traj = rollout_fp(cfg, args.depth, args.forks, plant)
             else:
                 print(f"error: reward kind {kind!r} has no rollout handler", file=sys.stderr)
                 return 2

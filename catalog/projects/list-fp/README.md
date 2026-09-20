@@ -8,6 +8,8 @@ Small quoted lists. Rewrites stay structural (empty, first, rest, cons-1). Do no
 ## Eval assumption
 Quoted lists of ints, e.g. (quote (1 2 3)).
 
+Rollout probes (`catalog/rewards/list-fp.json`): empty vs `(5 6)` for len/head; tail encodes `(null? . car)`; wrap(7) encodes `(nonempty . car)`. Plants are already the structural golds, so refuse beats vacuous empties. Hops export as dialect.
+
 ## Forbidden tokens
 - `eval` in plant or body
 - extra `define` inside a rebind body

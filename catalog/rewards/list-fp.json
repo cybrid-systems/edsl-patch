@@ -1,0 +1,18 @@
+{
+  "kind": "fp",
+  "project": "list-fp",
+  "depth": 2,
+  "forks": 4,
+  "advantage_min": 0.0,
+  "plants": {
+    "list-fp.p0": {"probe": "len", "expect": [0, 1]},
+    "list-fp.p1": {"probe": "head", "expect": [0, 5]},
+    "list-fp.p2": {"probe": "tail", "expect": [1, 6]},
+    "list-fp.p3": {"probe": "wrap", "expect": [1, 7]}
+  },
+  "weights": {
+    "eval_fail": -10.0,
+    "match": 5.0,
+    "refuse_correct": 2.0
+  }
+}

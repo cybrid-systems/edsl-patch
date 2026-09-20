@@ -91,11 +91,12 @@ python3 scripts/rollout.py --host aura --project twin-step --depth 1 --forks 2 -
 python3 scripts/rollout.py --host aura --project session-hot --depth 1 --forks 2 --rounds 1 --plant tick-hold
 python3 scripts/rollout.py --project arith-core --depth 1 --forks 4 --rounds 1 --plant arith-core.p0
 python3 scripts/rollout.py --project kv-mini --depth 1 --forks 4 --rounds 1 --plant kv-mini.p0
+python3 scripts/rollout.py --project list-fp --depth 1 --forks 4 --rounds 1 --plant list-fp.p0
 python3 -m unittest tests.test_rollout_reward -v
 ```
 
-`--project` is any stem in `catalog/rewards/*.json` (`kind`: twin | session | arith | kv).
-Unknown ids exit 2. arith-core and kv-mini hops export as **dialect**, not the 40/20 twin/session buckets.
+`--project` is any stem in `catalog/rewards/*.json` (`kind`: twin | session | arith | kv | fp).
+Unknown ids exit 2. arith-core, kv-mini, and list-fp hops export as **dialect**, not the 40/20 twin/session buckets.
 
 `--host dry-world` (default) runs the in-process Python stepper (no Aura binary) so rewards
 and tree cuts can be tested. `--host aura` plants, `ast:snapshot`s, rebinds, and steps via

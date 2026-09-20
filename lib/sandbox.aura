@@ -4,7 +4,8 @@
 
 (export sandbox:step-n sandbox:obs sandbox:tick-n sandbox:sess-obs
         sandbox:grid1 sandbox:grid2
-        sandbox:kv-get sandbox:kv-put sandbox:kv-miss)
+        sandbox:kv-get sandbox:kv-put sandbox:kv-miss
+        sandbox:fp-len sandbox:fp-head sandbox:fp-tail sandbox:fp-wrap)
 
 (define (sandbox:step-n w n)
   (if (<= n 0) w
@@ -65,3 +66,28 @@
 (define (sandbox:kv-miss fn)
   (list (try (fn (list (cons 1 10)) 1) (catch (e) #f))
         (try (fn (quote ()) 1) (catch (e) #f))))
+
+; list-fp: empty vs (5 6). len/head return numbers. tail/wrap encode (null? . car-or-0).
+(define (sandbox:fp-len fn)
+  (list (try (fn (quote ())) (catch (e) #f))
+        (try (fn (quote (5 6))) (catch (e) #f))))
+
+(define (sandbox:fp-head fn)
+  (sandbox:fp-len fn))
+
+(define (sandbox:fp-null? v)
+  (try (null? v) (catch (e) #f)))
+
+(define (sandbox:fp-car-num v)
+  (try (if (and (not (null? v)) (number? (car v))) (car v) 0) (catch (e) 0)))
+
+(define (sandbox:fp-tail fn)
+  (let ((a (try (fn (quote ())) (catch (e) #f)))
+        (b (try (fn (quote (5 6))) (catch (e) #f))))
+    (list (if (or (not a) (sandbox:fp-null? a)) 1 0)
+          (sandbox:fp-car-num b))))
+
+(define (sandbox:fp-wrap fn)
+  (let ((r (try (fn 7) (catch (e) #f))))
+    (list (if (or (not r) (sandbox:fp-null? r)) 0 1)
+          (sandbox:fp-car-num r))))

@@ -324,3 +324,87 @@ def observe_kv(plant_id: str, vals: list, epoch: int, name: str) -> dict[str, An
         "epoch": epoch,
         "probe": "kv",
     }
+
+
+def _fp_len_one(xs: list) -> int:
+    return 0 if not xs else 1
+
+
+def _fp_len_empty(xs: list) -> int:
+    return 0
+
+
+def _fp_head_car(xs: list) -> int:
+    return 0 if not xs else int(xs[0])
+
+
+def _fp_tail_cdr(xs: list) -> list:
+    return [] if not xs else list(xs[1:])
+
+
+def _fp_tail_empty(xs: list) -> list:
+    return []
+
+
+def _fp_wrap_one(x: Any) -> list:
+    return [x]
+
+
+def _fp_wrap_empty(x: Any) -> list:
+    return []
+
+
+FP_FNS: dict[str, Callable] = {
+    "len-empty": _fp_len_empty,
+    "len-z": _fp_len_empty,
+    "len-one": _fp_len_one,
+    "len-one2": _fp_len_one,
+    "null-pred": lambda xs: 1 if not xs else 0,
+    "car-or-0": _fp_head_car,
+    "head-car": _fp_head_car,
+    "head-miss": lambda xs: 0,
+    "head-z2": _fp_len_empty,
+    "tail-empty": _fp_tail_empty,
+    "tail-z2": _fp_tail_empty,
+    "tail-cdr": _fp_tail_cdr,
+    "cdr-or-nil": _fp_tail_cdr,
+    "cons-one": _fp_wrap_one,
+    "cons-id2": _fp_wrap_one,
+    "cons-empty": _fp_wrap_empty,
+}
+
+FP_PLANTS: dict[str, dict[str, Any]] = {
+    "list-fp.p0": {"name": "len", "probe": "len", "fn": _fp_len_one},
+    "list-fp.p1": {"name": "head", "probe": "head", "fn": _fp_head_car},
+    "list-fp.p2": {"name": "tail", "probe": "tail", "fn": _fp_tail_cdr},
+    "list-fp.p3": {"name": "wrap", "probe": "wrap", "fn": _fp_wrap_one},
+}
+
+
+def fp_probe_vals(fn: Callable, probe: str) -> list:
+    try:
+        if probe == "len":
+            return [fn([]), fn([5, 6])]
+        if probe == "head":
+            return [fn([]), fn([5, 6])]
+        if probe == "tail":
+            a, b = fn([]), fn([5, 6])
+            return [1 if not a else 0, (b[0] if b else 0)]
+        if probe == "wrap":
+            r = fn(7)
+            return [0 if not r else 1, (r[0] if r else 0)]
+    except Exception:
+        return [None, None]
+    return []
+
+
+def observe_fp(plant_id: str, vals: list, epoch: int, name: str) -> dict[str, Any]:
+    return {
+        "vals": vals,
+        "ok": all(v is not None for v in vals),
+        "plant": plant_id,
+        "hot": [name],
+        "frozen": [],
+        "epoch": epoch,
+        "probe": "fp",
+    }
