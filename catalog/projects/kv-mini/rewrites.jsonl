@@ -6,3 +6,13 @@
 {"id": "kv-mini.miss-t", "project": "kv-mini", "name": "miss", "body": "(lambda (box key) #t)", "summary": "miss-always", "arity": 2}
 {"id": "kv-mini.miss-n", "project": "kv-mini", "name": "miss", "body": "(lambda (box key) (null? box))", "summary": "miss-empty", "arity": 2}
 {"id": "kv-mini.miss-f", "project": "kv-mini", "name": "miss", "body": "(lambda (box key) #f)", "summary": "miss-never", "arity": 2}
+{"id": "kv-mini.get-miss2", "project": "kv-mini", "name": "get", "body": "(lambda (box key) #f)", "summary": "get-miss2", "arity": 2}
+{"id": "kv-mini.get-null", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (null? box))", "summary": "get-null", "arity": 2}
+{"id": "kv-mini.gbody0", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (if (null? box) #f 0))", "summary": "get-const0", "arity": 2}
+{"id": "kv-mini.gbody1", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (if (null? box) #f 1))", "summary": "get-const1", "arity": 2}
+{"id": "kv-mini.gbody2", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (if (null? box) #f 2))", "summary": "get-const2", "arity": 2}
+{"id": "kv-mini.gbody3", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (if (null? box) #f 3))", "summary": "get-const3", "arity": 2}
+{"id": "kv-mini.gbody4", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (if (null? box) #f 4))", "summary": "get-const4", "arity": 2}
+{"id": "kv-mini.gbody5", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (if (null? box) #f 5))", "summary": "get-const5", "arity": 2}
+{"id": "kv-mini.gbody6", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (if (null? box) #f 6))", "summary": "get-const6", "arity": 2}
+{"id": "kv-mini.gbody7", "project": "kv-mini", "name": "get", "body": "(lambda (box key) (if (null? box) #f 7))", "summary": "get-const7", "arity": 2}

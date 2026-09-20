@@ -2,3 +2,15 @@
 {"id": "kv-mini.p1", "source": "(define put (lambda (box key val) box))", "names": ["put"], "project": "kv-mini"}
 {"id": "kv-mini.p2", "source": "(define miss (lambda (box key) #t))", "names": ["miss"], "project": "kv-mini"}
 {"id": "kv-mini.p3", "source": "(define get (lambda (box key) #f))\n(define put (lambda (box key val) box))", "names": ["get"], "project": "kv-mini"}
+{"id": "kv-mini.gx0", "source": "(define get0 (lambda (box key) #f))", "names": ["get0"], "project": "kv-mini"}
+{"id": "kv-mini.gx1", "source": "(define get1 (lambda (box key) #f))", "names": ["get1"], "project": "kv-mini"}
+{"id": "kv-mini.gx2", "source": "(define get2 (lambda (box key) #f))", "names": ["get2"], "project": "kv-mini"}
+{"id": "kv-mini.gx3", "source": "(define get3 (lambda (box key) #f))", "names": ["get3"], "project": "kv-mini"}
+{"id": "kv-mini.gx4", "source": "(define get4 (lambda (box key) #f))", "names": ["get4"], "project": "kv-mini"}
+{"id": "kv-mini.gx5", "source": "(define get5 (lambda (box key) #f))", "names": ["get5"], "project": "kv-mini"}
+{"id": "kv-mini.gx6", "source": "(define get6 (lambda (box key) #f))", "names": ["get6"], "project": "kv-mini"}
+{"id": "kv-mini.gx7", "source": "(define get7 (lambda (box key) #f))", "names": ["get7"], "project": "kv-mini"}
+{"id": "kv-mini.gx8", "source": "(define get8 (lambda (box key) #f))", "names": ["get8"], "project": "kv-mini"}
+{"id": "kv-mini.gx9", "source": "(define get9 (lambda (box key) #f))", "names": ["get9"], "project": "kv-mini"}
+{"id": "kv-mini.gx10", "source": "(define get10 (lambda (box key) #f))", "names": ["get10"], "project": "kv-mini"}
+{"id": "kv-mini.gx11", "source": "(define get11 (lambda (box key) #f))", "names": ["get11"], "project": "kv-mini"}
