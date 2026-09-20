@@ -84,8 +84,11 @@ Do not train `restore` / `skip` / `yield` as targets. Snapshot restore is the **
 
 ```bash
 python3 scripts/rollout.py --project twin-step --depth 6 --forks 4 --rounds 8
+python3 scripts/rollout.py --host aura --project twin-step --depth 1 --forks 2 --rounds 1 --plant mass-spring
 python3 -m unittest tests.test_rollout_reward -v
 ```
 
-`--dry-world` runs the in-process Python stepper (no Aura binary) so rewards
-and tree cuts can be tested. Aura apply is `--host aura` when `$AURA_BIN` exists.
+`--host dry-world` (default) runs the in-process Python stepper (no Aura binary) so rewards
+and tree cuts can be tested. `--host aura` plants, `ast:snapshot`s, rebinds, and steps via
+`lib/sandbox.aura` (`EDSL_OBS`). Snapshot restore is plumbing, never an SFT `restore` label.
+`--host aura` without a binary exits 2. No `fiber:spawn`.

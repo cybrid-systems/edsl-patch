@@ -1,0 +1,32 @@
+; lib/sandbox.aura — Aura host loop for scripts/rollout.py --host aura
+; Snapshot restore is sandbox plumbing, never an SFT restore label.
+; Fork is ast:snapshot, not a CLI fiber. Mutate only via mutate:rebind on a hot name.
+
+(export sandbox:step-n sandbox:obs sandbox:tick-n sandbox:sess-obs)
+
+(define (sandbox:step-n w n)
+  (if (<= n 0) w
+    (sandbox:step-n (step w (control w)) (- n 1))))
+
+(define (sandbox-num w k)
+  (try (let ((v (hash-ref w k))) (if (number? v) v #f)) (catch (e) #f)))
+
+(define (sandbox:obs w epoch)
+  (hash "t" (hash-ref w "t")
+        "energy" (energy w)
+        "sat" (sandbox-num w "sat")
+        "x2" (sandbox-num w "x2")
+        "epoch" epoch
+        "world" w))
+
+(define (sandbox:tick-n book sess n)
+  (if (<= n 0) sess
+    (let ((out (tick book sess)))
+      (sandbox:tick-n book (hash-ref out "sess") (- n 1)))))
+
+(define (sandbox:sess-obs sess epoch)
+  (hash "id" (hash-ref sess "id")
+        "fd" (hash-ref sess "fd")
+        "alive" (hash-ref sess "alive")
+        "seq" (try (hash-ref sess "seq") (catch (e) 0))
+        "epoch" epoch))

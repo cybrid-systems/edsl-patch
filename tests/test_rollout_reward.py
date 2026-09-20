@@ -1,5 +1,6 @@
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -70,6 +71,29 @@ class RewardSession(unittest.TestCase):
 
 
 class Tree(unittest.TestCase):
+    def test_sandbox_aura_has_no_fiber_spawn(self):
+        text = (ROOT / "lib" / "sandbox.aura").read_text(encoding="utf-8")
+        self.assertNotIn("fiber:spawn", text)
+        self.assertNotIn("fiber:", text)
+        src = RO.emit_aura_twin_hop(
+            "(define step (lambda (w u) w))\n(define energy (lambda (w) 0))\n(define control (lambda (w) 0))",
+            '(hash "x" 2 "v" 1 "t" 0)',
+            40,
+            40,
+            [{"kind": "synthesis", "target": RO._patch("control", "(lambda (world) 0)", "zero-u")}],
+            1,
+        )
+        self.assertNotIn("fiber:spawn", src)
+        self.assertIn("ast:snapshot", src)
+        self.assertIn("EDSL_OBS", src)
+
+    def test_host_aura_without_bin_exits_2(self):
+        from unittest.mock import patch
+
+        with patch.object(RO, "pick_bin", side_effect=SystemExit("no aura")):
+            rc = RO.main(["--host", "aura", "-o", str(ROOT / "data" / "raw" / "nope.jsonl")])
+        self.assertEqual(rc, 2)
+
     def test_twin_emits_hops_and_traj(self):
         cfg = json.loads((ROOT / "catalog" / "rewards" / "twin-step.json").read_text())
         hops, traj = RO.rollout_twin(cfg, depth=3, forks=4, plant="mass-spring")
@@ -85,6 +109,31 @@ class Tree(unittest.TestCase):
         kills = [h for h in hops if h["id"].endswith("kill-alive")]
         for h in kills:
             self.assertFalse(h.get("sft"))
+
+
+def _aura_available() -> bool:
+    try:
+        from apply import pick_bin
+
+        pick_bin()
+        return True
+    except SystemExit:
+        return False
+
+
+@unittest.skipUnless(_aura_available(), "Aura binary not found")
+class AuraHost(unittest.TestCase):
+    def test_twin_smoke_observe_t_steps(self):
+        cfg = json.loads((ROOT / "catalog" / "rewards" / "twin-step.json").read_text())
+        hops, traj = RO.rollout_twin_aura(cfg, depth=1, forks=2, plant="mass-spring")
+        self.assertTrue(hops)
+        self.assertEqual(traj.get("host"), "aura")
+        obs_t = hops[0]["input"]["observe"]["t"]
+        self.assertEqual(obs_t, cfg.get("n_pre", 40))
+        blob = json.dumps(hops)
+        self.assertNotIn("fiber:spawn", blob)
+        self.assertNotIn('"restore"', blob)
+        self.assertNotIn('"skip"', blob)
 
 
 if __name__ == "__main__":
