@@ -37,6 +37,27 @@ class ExportTests(unittest.TestCase):
             to_sft(sample)
         self.assertIs(sample.get("sft"), False)
 
+    def test_poison_eval_not_in_commercial(self):
+        import tempfile
+        from export_sft import main as export_main
+
+        out = Path(tempfile.mkdtemp()) / "sft.jsonl"
+        rc = export_main(
+            [
+                "--profile",
+                "commercial",
+                "--out",
+                str(out),
+                str(ROOT / "tests" / "fixtures" / "export" / "twin.jsonl"),
+                str(ROOT / "tests" / "fixtures" / "export" / "refuse.jsonl"),
+                str(ROOT / "tests" / "fixtures" / "export" / "poison.jsonl"),
+            ]
+        )
+        self.assertEqual(rc, 0)
+        text = out.read_text()
+        self.assertNotIn("eval x", text)
+        self.assertIn("refuse", text)
+
     def test_farm_shaped_row_strips_verify(self):
         sample = {
             "id": "farm-id-f-plus1-f",

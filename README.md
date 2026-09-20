@@ -67,7 +67,10 @@ python3 scripts/collect.py --doctor        # sibling + Aura layout (no jsonl)
 python3 scripts/collect.py --limit 5       # real Unify KV / span git rebinds (cap before apply)
 python3 scripts/farm.py --rounds 24        # star-mode control transforms → data/raw/farm.jsonl
 python3 scripts/farm.py --mode path --depth 4 --rounds 12   # chain post-source, re-plant every 4
-python3 scripts/export_sft.py data/raw/business.jsonl data/raw/teacher.jsonl data/raw/verified.jsonl data/raw/farm.jsonl
+python3 scripts/export_sft.py --profile dialect data/raw/verified.jsonl data/raw/teacher.jsonl
+python3 scripts/export_sft.py --profile commercial \
+  data/raw/farm-world-twin-step.jsonl data/raw/farm-world-session-hot.jsonl \
+  data/raw/refuse.jsonl data/raw/farm.jsonl data/raw/teacher.jsonl
 ```
 
 A `rebind` patch is:
@@ -80,6 +83,8 @@ A `rebind` patch is:
 Decide / persist / restore stay Strand meanings and are **not** v1 training targets. Poison must not become a positive synthesis label.
 
 Farm samples are star-mode control transforms (`lib/farm.aura`). Git harvest stays `collect.py`. Teacher workers still do not mutate.
+
+`--profile commercial` mix: twin-step 40%, session-hot 20%, refuse 20%, L0 dialect 15%, teacher/business 5%. Empty buckets warn; they do not get backfilled with arith. `--profile dialect` is the old flat concat.
 
 ## Grok Build
 

@@ -1,0 +1,1 @@
+{"id":"fx-refuse","input":{"source":"(define f (lambda (x) x))","observe":{"hot":["f"],"frozen":[]}},"target":[{"kind":"query","op":"find","name":"f"},{"kind":"refuse","op":"capability","name":"f","why":"eval"}],"verify":{"apply_ok":true},"sft":true}
