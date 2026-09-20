@@ -60,11 +60,10 @@ class PlanTests(unittest.TestCase):
             self.assertNotEqual(p["auto_preset"], "full")
             self.assertIn(p["auto_preset"], {"off", "smoke", "small", "medium"})
 
-    def test_missing_catalog_is_smoke(self):
+    def test_existing_catalog_never_full(self):
         p = fb.plan_project("arith-core")
-        self.assertEqual(p["plants"], 0)
-        self.assertEqual(p["auto_preset"], "smoke")
-        self.assertEqual(p["auto_reason"], "missing-runner-or-catalog")
+        self.assertGreater(p["plants"], 0)
+        self.assertNotEqual(p["auto_preset"], "full")
 
     def test_status_line_has_budget(self):
         line = fb.status_line(fb.plan_project("kv-mini"))

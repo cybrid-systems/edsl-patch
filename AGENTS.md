@@ -45,6 +45,13 @@ One model output = one JSON **array**.
 | collect | `scripts/collect.py` | `business.jsonl` |
 | farm | `scripts/farm.py` | `farm.jsonl` |
 
+## Continuous farm
+
+Use `scripts/farm_loop.py --project <id> --budget small` (default smoke).
+One project per session. Paste `/goal` from `catalog/projects/LOOP.md`.
+On catalog-exhausted, extend only that project's plants/rewrites (≤ max-catalog-edits).
+Never `/loop`, never a second project, never `--budget full` unless asked.
+
 ## Session budget
 
 Default preset is **`smoke`**, never `full`. Honor `EDSL_PATCH_BUDGET` / `--budget` (`catalog/projects/BUDGET.md`). One issue, one project, one session. Do not call `/loop`. Do not escalate the preset mid-session. Stop reasons include `budget` and `wall` next to `quota` / `max-loop`. Parser lives in `scripts/farm_budget.py` (#19); do not reimplement it here.

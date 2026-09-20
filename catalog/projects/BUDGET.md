@@ -4,6 +4,13 @@ Host farm (`farm_project.py` × Aura apply) does **not** call an LLM.
 Grok Build tokens burn when an agent implements issues or extends
 `catalog/projects/<id>/` after `catalog-exhausted`.
 
+```
+/goal Farm project arith-core under budget=small.
+Use scripts/farm_loop.py --project arith-core --budget small.
+Honor EDSL_PATCH_BUDGET if set; default smoke. Do not pass --budget full unless the operator said full.
+Stop on quota, budget, wall, or max-loop. Do not commit data/raw.
+```
+
 ```bash
 python3 scripts/farm_budget.py --plan --all
 python3 scripts/farm_budget.py --project arith-core --json
