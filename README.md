@@ -42,8 +42,9 @@ edsl-patch/
 ├── lessons/            # teacher seeds (source_0 + source_1 intent)
 ├── lib/teacher.aura    # namer / binder / helper agents (no mutate)
 ├── examples/           # apply-verified goldens
-├── scripts/            # apply / ingest / teach / collect / export_sft
-└── tests/              # legal + apply + teacher fanout
+├── catalog/projects/   # typed plants + session budget
+├── scripts/            # apply / ingest / teach / collect / export_sft / farm_budget
+└── tests/              # legal + apply + teacher fanout + budget
 ```
 
 ## Apply (host)
@@ -73,6 +74,17 @@ A `rebind` patch is:
 ```
 
 Decide / persist / restore stay Strand meanings and are **not** v1 training targets. Poison must not become a positive synthesis label.
+
+## Session budget (Grok Build)
+
+Default is `smoke`: 20 farm keeps, collect `--limit 5`, **zero** catalog edits.
+Auto-plan never selects `full` (3000 × 8). Host farm does not spend Grok tokens.
+
+```bash
+python3 scripts/farm_budget.py --plan --all
+```
+
+See `catalog/projects/BUDGET.md`. Override with `EDSL_PATCH_BUDGET=small` or `catalog/projects/budget.env` (gitignored).
 
 ## License
 
