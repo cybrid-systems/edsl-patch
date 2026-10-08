@@ -8,7 +8,7 @@ Grok Build tokens burn when an agent implements issues or extends
 /goal Farm project arith-core under budget=small.
 Use scripts/farm_loop.py --project arith-core --budget small.
 Honor EDSL_PATCH_BUDGET if set; default smoke. Do not pass --budget full unless the operator said full.
-Stop on quota, budget, wall, or max-loop. Do not commit data/raw.
+Stop on quota, budget, wall, or max-loop. Commit data/raw tracks. Do not commit checkpoints.
 ```
 
 ```bash

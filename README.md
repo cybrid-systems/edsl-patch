@@ -29,7 +29,7 @@ A patch is a JSON array (see `schema/patch.md`). Query locates. Synthesis mutate
 - Not Unify (live MiniMax evolve + issue pump).
 - Not live `synthesize:define` (nested LLM).
 - Not v1 control-policy (`skip` / `persist` / `restore` / `yield`) — later track.
-- Weights and raw dumps stay out of git (`checkpoints/`, `data/raw/`).
+- Weights stay out of git (`checkpoints/`). Raw jsonl under `data/raw/` is tracked.
 
 ## Layout
 
@@ -98,7 +98,7 @@ cd edsl-patch
 grok
 ```
 
-Then `/goal` the **open issue number** only, e.g. implement #2 exactly. Contract: `AGENTS.md`. Do not expand to other issues. Do not commit `data/raw/`. Default farm budget is `smoke` (`catalog/projects/BUDGET.md`).
+Then `/goal` the **open issue number** only, e.g. implement #2 exactly. Contract: `AGENTS.md`. Do not expand to other issues. Commit `data/raw/` tracks. Do not commit checkpoints. Default farm budget is `smoke` (`catalog/projects/BUDGET.md`).
 
 ## Session budget (Grok Build)
 
