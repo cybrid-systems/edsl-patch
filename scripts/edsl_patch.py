@@ -202,6 +202,7 @@ def emit_driver(source_path: Path, patch: list[dict[str, Any]]) -> str:
         "(define *ok* #t)",
         "(define *q* '())",
         "(define *syn-ok* #f)",
+        "(define *syn-raw* #f)",
         "(define *syn-op* \"\")",
         "",
         "(define (q-empty? v)",
@@ -243,14 +244,17 @@ def emit_driver(source_path: Path, patch: list[dict[str, Any]]) -> str:
     if synth.get("kind") == "refuse":
         lines += [
             '(set! *syn-op* "refuse")',
+            "(set! *syn-raw* #t)",
             "(set! *syn-ok* #t)",
         ]
     elif synth.get("op") == "rebind":
         lines += [
             f"(set! *syn-op* \"rebind\")",
-            f"(set! *syn-ok* (try (mutate:rebind {scheme_string(synth['name'])} "
+            # Rejected rebind returns a truthy list, ("mutation-failed" ...), not #f.
+            f"(set! *syn-raw* (try (mutate:rebind {scheme_string(synth['name'])} "
             f"{scheme_string(synth['body'])} {scheme_string(synth['summary'])}) "
             f"(catch (e) #f)))",
+            "(set! *syn-ok* (eq? *syn-raw* #t))",
         ]
     else:
         args = " ".join(scheme_string(a) for a in synth["args"])
@@ -259,10 +263,11 @@ def emit_driver(source_path: Path, patch: list[dict[str, Any]]) -> str:
         ) + ")"
         lines += [
             f"(set! *syn-op* \"fill\")",
-            f"(set! *syn-ok* (try {fill} (catch (e) #f)))",
+            f"(set! *syn-raw* (try {fill} (catch (e) #f)))",
+            "(set! *syn-ok* (eq? *syn-raw* #t))",
         ]
     lines += [
-        "(if (not *syn-ok*) (set! *ok* #f) #f)",
+        "(if (not (eq? *syn-ok* #t)) (set! *ok* #f) #f)",
         "(define *eval-ok* (try (begin (eval-current) #t) (catch (e) #f)))",
         "(if (not *eval-ok*)",
         "  (begin",
@@ -275,7 +280,7 @@ def emit_driver(source_path: Path, patch: list[dict[str, Any]]) -> str:
         "(define *out*",
         "  (hash \"ok\" *ok*",
         '        "query" *q*',
-        '        "synthesis" (hash "op" *syn-op* "ok" *syn-ok*)',
+        '        "synthesis" (hash "op" *syn-op* "ok" *syn-ok* "detail" *syn-raw*)',
         '        "source" *src*))',
         '(display "EDSL_PATCH_RESULT ")',
         "(display (json-encode *out*))",

@@ -45,6 +45,15 @@ def pick_lib() -> Path:
     raise SystemExit("error: Aura stdlib not found. Set AURA_LIB")
 
 
+def apply_succeeded(result: dict) -> bool:
+    """True only when the driver set ok to JSON true.
+
+    A rejected mutate:rebind is a non-empty list, which is truthy. Callers
+    must not use `if result.get("ok")`.
+    """
+    return result.get("ok") is True
+
+
 def parse_result(stdout: str) -> dict:
     marker = "EDSL_PATCH_RESULT "
     for line in stdout.splitlines():
@@ -241,7 +250,7 @@ def apply_sample(sample: dict, *, timeout: int = 30) -> dict:
     probes = verify.get("probes") or {}
     if patch and patch[-1].get("kind") == "refuse":
         result["probes"] = {"refuse_noop": True}
-        if verify.get("apply_ok") and result.get("ok"):
+        if verify.get("apply_ok") and apply_succeeded(result):
             result["probe_pass"] = True
         return result
     if probes.get("t_mono") or "energy_after_steps_lt" in probes:
@@ -317,15 +326,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if expected and sample_obj is None:
         result["match"] = sources_match(result.get("source") or "", expected)
-        if result.get("ok") and not result["match"]:
+        if apply_succeeded(result) and not result["match"]:
             result["ok"] = False
             result["error"] = "post-source mismatch"
 
     public = {k: v for k, v in result.items() if k != "_raw"}
     print(json.dumps(public, ensure_ascii=False))
     if sample_obj is not None and sample_obj.get("sft") is False:
-        return 0 if not result.get("ok") else 2
-    return 0 if result.get("ok") else 2
+        return 0 if not apply_succeeded(result) else 2
+    return 0 if apply_succeeded(result) else 2
 
 
 if __name__ == "__main__":

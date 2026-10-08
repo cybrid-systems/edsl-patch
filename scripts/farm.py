@@ -396,7 +396,7 @@ def spot_check(path: Path, frac: float) -> int:
             print(f"farm: spot-check fail {row.get('id')}: {e}", file=sys.stderr)
             fail += 1
             continue
-        if not result.get("ok"):
+        if result.get("ok") is not True:
             print(f"farm: spot-check apply-not-ok {row.get('id')}", file=sys.stderr)
             fail += 1
             continue

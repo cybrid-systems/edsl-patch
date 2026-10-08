@@ -33,6 +33,8 @@ python3 scripts/apply.py --sample examples/identity-to-abs.jsonl
 
 Query payloads do not include raw node ids. Verify uses: query `ok`, `find` not empty for the rebind name, post-source matches expected (whitespace-tolerant).
 
+`ok` is true only when `mutate:rebind` returns `#t`. A rejection is a truthy list `("mutation-failed" ...)`, and that list is not success. The driver stores that test as `(eq? *syn-raw* #t)`.
+
 ## Probes (v1.5)
 
 After a successful **rebind**, the host may run world probes instead of (or in addition to) `expected_source`:

@@ -55,4 +55,5 @@ Dropped before apply:
 ```bash
 python3 scripts/collect.py --rewrite --dry-run   # classify the current business jsonl
 python3 scripts/collect.py --rewrite             # reshape it in place, then re-apply
+python3 scripts/collect.py --reverify            # drop rows whose rebind is not #t; rewrite expected_source
 ```

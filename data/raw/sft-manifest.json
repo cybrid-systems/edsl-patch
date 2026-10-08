@@ -1,7 +1,7 @@
 {
   "profile": "dialect",
   "command": "python3 scripts/export_sft.py --profile dialect",
-  "head": "cba388ed04240855d593f2e0fb19c851e111d047",
+  "head": "6890445246ea6317ea76c8969c6eb4cf9b080ef1",
   "host": "3b213503eb45cc1dd84261e9864638fa42ca590a",
   "sources": [
     "data/raw/verified.jsonl",
@@ -9,23 +9,23 @@
     "data/raw/business.jsonl",
     "data/raw/farm.jsonl"
   ],
-  "rows": 267,
+  "rows": 66,
   "skipped": 113,
   "ambiguous": 0,
   "max_source_chars": 12000,
   "per_src": {
     "data/raw/verified.jsonl": 0,
     "data/raw/teacher.jsonl": 0,
-    "data/raw/business.jsonl": 267,
+    "data/raw/business.jsonl": 66,
     "data/raw/farm.jsonl": 0
   },
   "source_sha256": {
     "data/raw/verified.jsonl": "6ad4c1202e35edb4bb5135bb2cecdb69343bc019bb9ff8691f54d13783b55230",
     "data/raw/teacher.jsonl": "07e052241a7236dd66e23083fced3c146546672192641f9e86bff848179f1f3a",
-    "data/raw/business.jsonl": "acf7f68f7da78852b77fc1eb2f9a4dee4c57f6a9aa9dd187c708ab2a08c50746",
+    "data/raw/business.jsonl": "0e4093b09ba2f37bf6188b6e173e93a38b16274a14ba53e45bbfcb2a88087611",
     "data/raw/farm.jsonl": "458a771a9e64f353558d90b84e490ede1e392ed0ebe9571a3403ae0ba2169afa"
   },
   "buckets": {
-    "teacher": 267
+    "teacher": 66
   }
 }

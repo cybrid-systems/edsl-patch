@@ -123,7 +123,7 @@ def verify_row(sample: dict, *, run_host: bool) -> dict | None:
     except PatchError:
         return None
     expected = (sample.get("verify") or {}).get("expected_source")
-    ok = bool(result.get("ok"))
+    ok = result.get("ok") is True
     if expected:
         ok = ok and sources_match(result.get("source") or "", expected)
     if not ok:

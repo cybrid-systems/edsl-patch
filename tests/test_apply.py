@@ -10,8 +10,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from apply import apply_patch, pick_bin
+from apply import apply_patch, apply_succeeded, pick_bin
 from edsl_patch import load_sample, sources_match
+from parse_aura import patch_for
 
 
 def aura_available() -> bool:
@@ -22,8 +23,26 @@ def aura_available() -> bool:
         return False
 
 
+class ApplyFlagTests(unittest.TestCase):
+    def test_mutation_failed_list_is_not_success(self):
+        self.assertFalse(apply_succeeded({"ok": ["mutation-failed", "unbound variable: x"]}))
+        self.assertFalse(apply_succeeded({"ok": False}))
+        self.assertTrue(apply_succeeded({"ok": True}))
+
+
 @unittest.skipUnless(aura_available(), "Aura binary not found")
 class ApplyTests(unittest.TestCase):
+    def test_rejected_rebind_is_not_ok(self):
+        result = apply_patch(
+            "(define f (lambda (x) x))",
+            patch_for("f", "(lambda (x) (not-a-real-fn x))", "bad-call"),
+        )
+        self.assertFalse(apply_succeeded(result), result)
+        self.assertIs(result.get("ok"), False)
+        detail = (result.get("synthesis") or {}).get("detail")
+        self.assertIsInstance(detail, list)
+        self.assertEqual(detail[0], "mutation-failed")
+
     def test_identity_to_abs(self):
         sample = load_sample(ROOT / "examples" / "identity-to-abs.jsonl")
         result = apply_patch(sample["input"]["source"], sample["target"])

@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PARENT = ROOT.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from apply import apply_patch, pick_bin, pick_lib
+from apply import apply_patch, apply_succeeded, pick_bin, pick_lib
 from edsl_patch import PatchError, validate_patch
 from farm_budget import resolve
 from parse_aura import (
@@ -88,6 +88,12 @@ def sample_id(repo: str, rel: str, name: str, parent: str, child: str) -> str:
 _SUBJECT_PREFIX = re.compile(r"^(?:[A-Za-z][\w-]*)(?:\([^)\n]{0,40}\))?!?:\s+")
 _SHA_SUFFIX = re.compile(r"@[0-9a-fA-F]{7,}$")
 _HOST_REV: str | None = None
+
+
+def host_bin_sha() -> str:
+    blob = hashlib.sha256()
+    blob.update(pick_bin().read_bytes())
+    return blob.hexdigest()
 
 
 def host_rev() -> str:
@@ -445,7 +451,7 @@ def verify_candidates(
             counters["skip-apply"] += 1
             print(f"collect: {i}/{n} skip-apply {label} {e}", flush=True)
             continue
-        if not result.get("ok"):
+        if not apply_succeeded(result):
             counters["skip-apply"] += 1
             print(f"collect: {i}/{n} skip-apply {label}", flush=True)
             continue
@@ -586,6 +592,87 @@ def append_jsonl(path: Path, rows: list[dict], seen: set[str]) -> int:
     return n
 
 
+def _reject_reason(detail: object) -> str:
+    if isinstance(detail, list) and detail:
+        text = " ".join(str(part) for part in detail)
+        if "unbound variable" in text and "arity" in text:
+            return "unbound+arity"
+        if "unbound variable" in text:
+            return "unbound"
+        if "typecheck" in text:
+            return "typecheck"
+        head = str(detail[0])
+        return head if head else "mutation-failed"
+    if detail in (None, False):
+        return "rejected"
+    return "rejected"
+
+
+def reverify_business(path: Path, *, timeout: int, cursor_path: Path) -> int:
+    """Re-apply each business row. Keep only a real #t rebind and rewrite expected_source."""
+    if not path.is_file():
+        print(f"collect: reverify missing {path}", file=sys.stderr)
+        return 1
+    rows = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            rows.append(json.loads(line))
+    host = host_rev()
+    host_bin = host_bin_sha()
+    kept: list[dict] = []
+    reasons: Counter = Counter()
+    n = len(rows)
+    for i, row in enumerate(rows, 1):
+        label = f"{(row.get('meta') or {}).get('repo')}:{(row.get('meta') or {}).get('name')}"
+        try:
+            result = apply_patch(
+                row["input"]["source"],
+                row["target"],
+                timeout=timeout,
+            )
+        except (PatchError, subprocess.TimeoutExpired, OSError) as e:
+            reasons["apply-error"] += 1
+            print(f"collect: {i}/{n} drop-apply {label} {e}", flush=True)
+            continue
+        if not apply_succeeded(result):
+            reason = _reject_reason((result.get("synthesis") or {}).get("detail"))
+            reasons[reason] += 1
+            print(f"collect: {i}/{n} drop-{reason} {label}", flush=True)
+            continue
+        verify = dict(row.get("verify") or {})
+        verify["apply_ok"] = True
+        verify["expected_source"] = result.get("source") or ""
+        row["verify"] = verify
+        meta = dict(row.get("meta") or {})
+        meta["host"] = host
+        meta["host_bin"] = host_bin
+        row["meta"] = meta
+        kept.append(row)
+        print(f"collect: {i}/{n} keep {label}", flush=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with tmp.open("w", encoding="utf-8") as f:
+        for row in kept:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    tmp.replace(path)
+    if cursor_path.is_file():
+        cursor = load_cursor(cursor_path)
+    else:
+        cursor = {"git": {}, "seen": []}
+    cursor["shape"] = "reverify-v1"
+    seen = set(cursor.get("seen") or [])
+    for row in rows:
+        if row.get("id"):
+            seen.add(row["id"])
+    cursor["seen"] = sorted(seen)
+    save_cursor(cursor_path, cursor)
+    print(
+        "collect: reverify "
+        + " ".join(f"{k}={v}" for k, v in sorted(reasons.items()))
+        + f" keep={len(kept)} of {n} host={host} -> {path}"
+    )
+    return 0 if kept else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--out", type=Path, default=OUT_PATH)
@@ -603,6 +690,11 @@ def main(argv: list[str] | None = None) -> int:
         "--rewrite",
         action="store_true",
         help="reshape the existing business jsonl (focused context, commit intent)",
+    )
+    p.add_argument(
+        "--reverify",
+        action="store_true",
+        help="re-apply business.jsonl and drop rows whose rebind is not #t",
     )
     p.add_argument(
         "--dry-run",
@@ -624,6 +716,9 @@ def main(argv: list[str] | None = None) -> int:
         return rewrite_business(
             args.out, dry_run=args.dry_run, timeout=args.timeout, cursor_path=args.cursor
         )
+
+    if args.reverify:
+        return reverify_business(args.out, timeout=args.timeout, cursor_path=args.cursor)
 
     cursor = load_cursor(args.cursor)
     seen = set(cursor.get("seen") or [])

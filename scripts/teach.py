@@ -90,7 +90,7 @@ def verify_lessons(lessons: list[dict]) -> list[dict]:
             result = apply_patch(sample["input"]["source"], sample["target"])
         except PatchError:
             continue
-        if not result.get("ok"):
+        if result.get("ok") is not True:
             continue
         sample["verify"] = {
             "apply_ok": True,
