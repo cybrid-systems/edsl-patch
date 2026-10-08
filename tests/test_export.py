@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from edsl_patch import PatchError
-from export_sft import to_sft
+from export_sft import drop_reason, to_sft
 
 
 class ExportTests(unittest.TestCase):
@@ -290,6 +290,94 @@ class ExportTests(unittest.TestCase):
             "sft": True,
         }
         self.assertEqual(drop_reason(sample), "demo-observe")
+
+    def test_rebind_without_intent_dropped(self):
+        sample = {
+            "id": "no-intent",
+            "input": {"source": "(define f (lambda (x) x))"},
+            "target": [
+                {"kind": "query", "op": "find", "name": "f"},
+                {"kind": "query", "op": "def-use", "name": "f"},
+                {
+                    "kind": "synthesis",
+                    "op": "rebind",
+                    "name": "f",
+                    "body": "(lambda (x) (+ x 1))",
+                    "summary": "plus1",
+                },
+            ],
+            "verify": {"apply_ok": True},
+        }
+        self.assertEqual(drop_reason(sample), "missing-intent")
+
+    def test_focus_budget_not_1500(self):
+        src = "(define f (lambda (x) x))\n" + (";" * 2000)
+        sample = {
+            "id": "long-focus",
+            "input": {"source": src, "intent": "Rebind f: add one"},
+            "target": [
+                {"kind": "query", "op": "find", "name": "f"},
+                {"kind": "query", "op": "def-use", "name": "f"},
+                {
+                    "kind": "synthesis",
+                    "op": "rebind",
+                    "name": "f",
+                    "body": "(lambda (x) (+ x 1))",
+                    "summary": "add one",
+                },
+            ],
+            "verify": {"apply_ok": True},
+        }
+        self.assertIsNone(drop_reason(sample))
+        sample["input"]["source"] = src + ("x" * 12000)
+        self.assertEqual(drop_reason(sample), "source-too-long")
+
+    def test_ambiguous_prompts_dropped(self):
+        import tempfile
+        from export_sft import main as export_main
+
+        src = "(define f (lambda (x) x))"
+        def row(body, summary):
+            return {
+                "id": summary,
+                "input": {"source": src, "intent": "Rebind f: change it"},
+                "target": [
+                    {"kind": "query", "op": "find", "name": "f"},
+                    {"kind": "query", "op": "def-use", "name": "f"},
+                    {"kind": "synthesis", "op": "rebind", "name": "f", "body": body, "summary": summary},
+                ],
+                "verify": {"apply_ok": True},
+            }
+
+        folder = Path(tempfile.mkdtemp())
+        raw = folder / "toy.jsonl"
+        lines = [
+            row("(lambda (x) (+ x 1))", "plus1"),
+            row("(lambda (x) (+ x 2))", "plus2"),
+            {
+                "id": "other",
+                "input": {"source": "(define g (lambda (x) x))", "intent": "Rebind g: abs"},
+                "target": [
+                    {"kind": "query", "op": "find", "name": "g"},
+                    {"kind": "query", "op": "def-use", "name": "g"},
+                    {
+                        "kind": "synthesis",
+                        "op": "rebind",
+                        "name": "g",
+                        "body": "(lambda (x) (if (< x 0) (* x -1) x))",
+                        "summary": "abs",
+                    },
+                ],
+                "verify": {"apply_ok": True},
+            },
+        ]
+        raw.write_text("\n".join(json.dumps(r) for r in lines) + "\n", encoding="utf-8")
+        out = folder / "sft.jsonl"
+        rc = export_main(["--out", str(out), str(raw)])
+        self.assertEqual(rc, 0)
+        kept = [json.loads(line) for line in out.read_text().splitlines() if line.strip()]
+        self.assertEqual(len(kept), 1)
+        self.assertIn("abs", kept[0]["messages"][2]["content"])
 
 
 if __name__ == "__main__":

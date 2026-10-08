@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -14,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from collections import defaultdict
 
 from edsl_patch import SYSTEM_CONTRACT, PatchError, validate_patch
-from parse_aura import extract_defines
+from parse_aura import MAX_FOCUS_CHARS, extract_defines
 
 
 DEFAULT_SRC = (
@@ -55,7 +57,8 @@ def to_sft(sample: dict) -> dict:
     }
 
 
-MAX_SOURCE_CHARS = 1500
+# Whole-file business sources exceed this. Focused define excerpts stay under it.
+MAX_SOURCE_CHARS = MAX_FOCUS_CHARS
 MIN_TWIN_COMMERCIAL = 50
 MIN_SESSION_COMMERCIAL = 30
 CAP_PER_DYNAMICS_SUMMARY = 200
@@ -135,6 +138,10 @@ def drop_reason(sample: dict) -> str | None:
         if "(lambda (book sess)" not in src and "(lambda (book sess)" not in body:
             if "define quote" in src or "(define (quote" in src:
                 return "quote-only-session"
+    if last.get("op") == "rebind":
+        intent = (sample.get("input") or {}).get("intent")
+        if not isinstance(intent, str) or not intent.strip():
+            return "missing-intent"
     return None
 
 
@@ -183,6 +190,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="commercial: emit even if twin/session buckets are short or empty",
     )
+    p.add_argument(
+        "--manifest",
+        type=Path,
+        default=None,
+        help="write export counts and source paths as JSON",
+    )
     args = p.parse_args(argv)
 
     srcs = list(args.src) if args.src else [p for p in DEFAULT_SRC if p.is_file()]
@@ -215,8 +228,10 @@ def main(argv: list[str] | None = None) -> int:
                 skipped += 1
                 continue
             src_txt = (sample.get("input") or {}).get("source") or ""
+            intent_txt = str((sample.get("input") or {}).get("intent") or "")
             dkey = (
                 _norm_src(src_txt),
+                intent_txt,
                 json.dumps(sample.get("target") or [], sort_keys=True),
             )
             if dkey in seen_pairs:
@@ -241,6 +256,11 @@ def main(argv: list[str] | None = None) -> int:
                 other_kept += 1
         per_src[str(path)] = n
         print(f"export: {path.name} {n}")
+
+    rows, n_amb = _drop_ambiguous(rows)
+    if n_amb:
+        skipped += n_amb
+        print(f"export: ambiguous-prompts {n_amb}")
 
     if farm_kept > 3 * max(other_kept, 1) and other_kept > 0:
         print(
@@ -304,6 +324,33 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 2
 
+    if args.manifest is not None:
+        buckets: dict[str, int] = defaultdict(int)
+        for row in rows:
+            buckets[str(row.get("_bucket") or "dialect")] += 1
+        args.manifest.parent.mkdir(parents=True, exist_ok=True)
+        args.manifest.write_text(
+            json.dumps(
+                {
+                    "profile": args.profile,
+                    "command": "python3 scripts/export_sft.py --profile " + args.profile,
+                    "head": _git_rev(ROOT),
+                    "host": _git_rev(ROOT.parent / "aura-grok"),
+                    "sources": [_rel(s) for s in srcs],
+                    "rows": len(rows),
+                    "skipped": skipped,
+                    "ambiguous": n_amb,
+                    "max_source_chars": MAX_SOURCE_CHARS,
+                    "per_src": {_rel(Path(k)): v for k, v in per_src.items()},
+                    "source_sha256": {_rel(s): _sha256(s) for s in srcs if s.is_file()},
+                    "buckets": dict(buckets),
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", encoding="utf-8") as f:
         for row in rows:
@@ -312,6 +359,47 @@ def main(argv: list[str] | None = None) -> int:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
     print(f"export: {len(rows)} sft rows ({skipped} skipped) -> {args.out}")
     return 0 if rows else 1
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def _rel(path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(ROOT.resolve()))
+    except ValueError:
+        return str(path)
+
+
+def _git_rev(repo: Path) -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "-C", str(repo), "rev-parse", "HEAD"], text=True
+        ).strip()
+    except (subprocess.CalledProcessError, OSError):
+        return ""
+
+
+def _drop_ambiguous(rows: list[dict]) -> tuple[list[dict], int]:
+    """Drop every row whose user prompt has more than one completion."""
+    groups: dict[str, list[dict]] = defaultdict(list)
+    for row in rows:
+        msgs = row.get("messages") or []
+        system = msgs[0]["content"] if msgs else ""
+        user = msgs[1]["content"] if len(msgs) > 1 else ""
+        groups[system + "\n---\n" + user].append(row)
+    kept: list[dict] = []
+    dropped = 0
+    for group in groups.values():
+        completions = {item["messages"][2]["content"] for item in group}
+        if len(completions) > 1:
+            dropped += len(group)
+            continue
+        kept.append(group[0])
+    return kept, dropped
 
 
 if __name__ == "__main__":

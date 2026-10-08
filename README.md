@@ -65,6 +65,7 @@ python3 scripts/ingest.py                  # cartesian catalog → data/raw/veri
 python3 scripts/teach.py                   # teacher lessons + multi-agent variants
 python3 scripts/collect.py --doctor        # sibling + Aura layout (no jsonl)
 python3 scripts/collect.py --limit 5       # real Unify KV / span git rebinds (cap before apply)
+python3 scripts/collect.py --rewrite       # reshape business.jsonl: intent, focused context, re-apply
 python3 scripts/farm.py --rounds 24        # star-mode control transforms → data/raw/farm.jsonl
 python3 scripts/rollout.py --project twin-step --host dry-world --depth 4 --forks 4 --rounds 1
 python3 scripts/rollout.py --host aura --project session-hot --depth 1 --forks 2 --rounds 1 --plant tick-hold
@@ -89,7 +90,7 @@ Decide / persist / restore stay Strand meanings and are **not** v1 training targ
 
 Farm samples are star-mode control transforms (`lib/farm.aura`). Git harvest stays `collect.py`. Teacher workers still do not mutate.
 
-`--profile commercial` mix: twin-step 40%, session-hot 20%, refuse 20%, L0 dialect 15%, teacher/business 5%. Empty vertical buckets are an error (exit 2), not silent arith fill — pass `--allow-partial` only for fixture tests. Commercial also refuses to emit if twin world/path keeps < 50 or session keeps < 30 unless `--allow-partial`. Depth-v2 farms (#33–#36) are a prerequisite. Drops: quote-only session (no `tick`), hardcoded `energy: 12.4` / `t: 40` demo observe, missing observe on step/tick plants. `--profile dialect` is the old flat concat. Eval holdouts are never export inputs. Rollout JSONL: only `kind=hop` with `sft=true` and `advantage>0` (see `schema/rollout.md`).
+`--profile commercial` mix: twin-step 40%, session-hot 20%, refuse 20%, L0 dialect 15%, teacher/business 5%. Empty vertical buckets are an error (exit 2), not silent arith fill — pass `--allow-partial` only for fixture tests. Commercial also refuses to emit if twin world/path keeps < 50 or session keeps < 30 unless `--allow-partial`. Depth-v2 farms (#33–#36) are a prerequisite. Drops: quote-only session (no `tick`), hardcoded `energy: 12.4` / `t: 40` demo observe, missing observe on step/tick plants. `--profile dialect` is the old flat concat. Sources longer than 12000 characters are dropped. A rebind with no intent is dropped. A prompt with more than one completion is dropped. Eval holdouts are never export inputs. Rollout JSONL: only `kind=hop` with `sft=true` and `advantage>0` (see `schema/rollout.md`).
 
 ## Grok Build
 
