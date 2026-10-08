@@ -9,6 +9,5 @@ checkpoints/
 *.bin
 wandb/
 runs/
-data/raw/
 .strand/
 catalog/projects/budget.env
