@@ -37,6 +37,6 @@ cd ../edsl-patch && python3 scripts/collect.py --limit 5
 python3 scripts/export_sft.py data/raw/business.jsonl data/raw/teacher.jsonl
 ```
 
-Cursor: `data/raw/collect-cursor.json` (gitignored). Already-seen sample ids are not appended twice.
+Cursor: `data/raw/collect-cursor.json` is tracked with the other `data/raw/` jsonl. Already-seen sample ids are not appended twice.
 
 A candidate is kept only if `scripts/apply.py` succeeds on the **parent file** with `query + mutate:rebind` of the child body.
