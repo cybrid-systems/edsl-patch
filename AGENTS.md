@@ -10,7 +10,7 @@ Grok Build contract. One issue per session. Do not expand scope.
 | Host apply: `set-code` → `query` → `mutate:rebind` | Strand loop / Unify evolve |
 | Offline hard `rebind` / `fill` | Live `synthesize:define` (nested LLM) |
 
-See `README.md`. Weights and dumps stay out of git (`checkpoints/`, `data/raw/`).
+See `README.md`. Weights stay out of git (`checkpoints/`). Raw jsonl under `data/raw/` is tracked.
 
 ## Legal patch (`schema/patch.md`)
 
@@ -36,7 +36,7 @@ One model output = one JSON **array**.
 - Stdlib: `$AURA_LIB` or `../aura-grok/lib`
 - `AURA_SANDBOX=off` `AURA_PIPELINE_STRICT=0`
 
-## Tracks (jsonl, gitignored under `data/raw/`)
+## Tracks (jsonl under `data/raw/`)
 
 | Track | Script | Out |
 |-------|--------|-----|
@@ -59,4 +59,4 @@ Default preset is **`smoke`**, never `full`. Honor `EDSL_PATCH_BUDGET` / `--budg
 
 ## One-issue rule
 
-Implement **only** the open issue in the `/goal`. Do not start sibling issues. Do not invent new patch kinds. Do not commit `data/raw/` or checkpoints.
+Implement **only** the open issue in the `/goal`. Do not start sibling issues. Do not invent new patch kinds. Commit `data/raw/` tracks. Do not commit checkpoints.
