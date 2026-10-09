@@ -1,0 +1,96 @@
+{
+  "model": "MiniMax-M3",
+  "split": "eval",
+  "n": 12,
+  "legal_rate": 0.083,
+  "strict_apply_rate": 0.083,
+  "gold_match_rate": 0.083,
+  "same_name_rate": 0.083,
+  "host": "3b213503eb45cc1dd84261e9864638fa42ca590a",
+  "note": "Zero-shot, temperature 0, SFT system prompt + closed context + intent. Full answers: runs/batch1/baseline-eval.json (not committed).",
+  "rows": [
+    {
+      "id": "pv2-0bbe95c19318",
+      "legal": false,
+      "apply_ok": false,
+      "gold_match": false,
+      "error": "illegal: step 1: illegal kind 'rebind'"
+    },
+    {
+      "id": "pv2-aafee705d73d",
+      "legal": false,
+      "apply_ok": false,
+      "gold_match": false,
+      "error": "illegal: no JSON array"
+    },
+    {
+      "id": "pv2-39edbec31517",
+      "legal": false,
+      "apply_ok": false,
+      "gold_match": false,
+      "error": "illegal: step 2: extra keys ['name']"
+    },
+    {
+      "id": "pv2-a5ff7b4f2429",
+      "legal": false,
+      "apply_ok": false,
+      "gold_match": false,
+      "error": "illegal: step 0: illegal kind 'find'"
+    },
+    {
+      "id": "pv2-c5bf89390d2b",
+      "legal": false,
+      "apply_ok": false,
+      "gold_match": false,
+      "error": "illegal: step 0: illegal kind None"
+    },
+    {
+      "id": "pv2-676e7d0d796a",
+      "legal": false,
+      "apply_ok": false,
+      "gold_match": false,
+      "error": "illegal: step 0: illegal kind 'find'"
+    },
+    {
+      "id": "pv2-2bd774c62acb",
+      "legal": false,
+      "apply_ok": false,
+      "gold_match": false,
+      "error": "illegal: step 1: illegal kind 'completion'"
+    },
+    {
+      "id": "pv2-4942627b1dd3",
+      "legal": false,
+      "apply_ok": false,
+      "gold_match": false,
+      "error": "illegal: step 1: illegal kind 'rebind'"
+    },
+    {
+      "id": "pv2-bf56fdcf8b70",
+      "legal": true,
+      "apply_ok": true,
+      "gold_match": true
+    },
+    {
+      "id": "pv2-c5fa884151ac",
+      "legal": false,
+      "apply_ok": false,
+      "gold_match": false,
+      "error": "illegal: step 0: illegal kind None"
+    },
+    {
+      "id": "pv2-bc03c88f28af",
+      "legal": false,
+      "apply_ok": false,
+      "gold_match": false,
+      "error": "illegal: step 1: extra keys ['name']"
+    },
+    {
+      "id": "pv2-abf9cd7821d7",
+      "legal": false,
+      "apply_ok": false,
+      "gold_match": false,
+      "error": "illegal: step 1: extra keys ['observe']"
+    }
+  ]
+}

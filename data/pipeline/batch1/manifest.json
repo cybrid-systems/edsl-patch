@@ -1,0 +1,87 @@
+{
+  "pipeline_version": "2.0.0",
+  "edsl_patch_head": "1ffffa2038f9331de576c82e6a528af3e62b5030",
+  "edsl_patch_dirty": true,
+  "pipeline_code_sha256": "afcfc22a8b602ad6459b4da928de1e6009626a5ffff5ca36cdfa66bed4086a8b",
+  "command": "python3 -m scripts.pipeline collect --repo /workspace/edsl-patch-review/src/aura-pad --repo /workspace/edsl-patch-review/src/aura-redis --out /workspace/edsl-patch-review/runs/batch1 --intent llm --export",
+  "host": {
+    "aura_sha": "3b213503eb45cc1dd84261e9864638fa42ca590a",
+    "src_sha": "3b213503eb45cc1dd84261e9864638fa42ca590a",
+    "bin": "/workspace/edsl-patch-review/aura-3b21350/build/aura",
+    "bin_sha256": "1296bd4efbe6ecd79ba2dab189fc875037bcf0fa9ff0c7e1e3361527815b37c1",
+    "lib": "/workspace/edsl-patch-review/aura-3b21350/lib",
+    "selftest": {
+      "ok": true,
+      "cases": {
+        "accepts-plain-rebind": {
+          "want": true,
+          "got": true
+        },
+        "rejects-unbound-call": {
+          "want": false,
+          "got": false
+        },
+        "rejects-arity-mismatch": {
+          "want": false,
+          "got": false
+        }
+      }
+    }
+  },
+  "repos": {
+    "aura-pad": {
+      "path": "/workspace/edsl-patch-review/src/aura-pad",
+      "head": "3cf0f86e7d58d7b61e2c6dd51e1fe23e887c5495",
+      "remote": "https://github.com/cybrid-systems/aura-pad.git"
+    },
+    "aura-redis": {
+      "path": "/workspace/edsl-patch-review/src/aura-redis",
+      "head": "e8840d7cbdb5a55e4f3a7d5d81a792d7f58edb5a",
+      "remote": "https://github.com/cybrid-systems/aura-redis.git"
+    }
+  },
+  "options": {
+    "intent": "llm",
+    "minimax_env": null,
+    "tests": true,
+    "child_helpers": true,
+    "max_commits": null,
+    "max_units": null,
+    "workers": 4,
+    "eval_share": 0.15,
+    "budget": 12000,
+    "keep_trees": false
+  },
+  "started": "2026-10-09T08:46:18+0800",
+  "intent_mode": "llm (MiniMax-M3 @ https://api.minimax.cn/v1)",
+  "intent_llm_rejected": {
+    "auto-line": 3
+  },
+  "finished": "2026-10-09T08:55:12+0800",
+  "files": {
+    "eval.jsonl": {
+      "rows": 12,
+      "sha256": "b436a254bfe88fb6906492e9e42f76ce08e5b8e7492b03c1c432b429245c9cb8"
+    },
+    "labeled.jsonl": {
+      "rows": 130,
+      "sha256": "6329a5310e74ac80e8ad6aaccc470f755b5bae66797a05917901187dc9d14ef3"
+    },
+    "negatives-eval.jsonl": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "negatives-train.jsonl": {
+      "rows": 4,
+      "sha256": "592031d24963da4b519e13a626828c28fffb94edc6da755afcfe29c6ca2211d2"
+    },
+    "train.jsonl": {
+      "rows": 95,
+      "sha256": "a80d0bd6e69bd70337b5c2a6010007399d2b67467351ee6facbe030ac476b491"
+    },
+    "units.jsonl": {
+      "rows": 373,
+      "sha256": "1c4e93321f045bcc627b59fdc8147f5cdbdf59fc7bfa73544acdc7238e2a9644"
+    }
+  }
+}
