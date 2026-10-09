@@ -1,0 +1,19 @@
+{
+  "kind": "siblings",
+  "project": "siblings",
+  "host": "aura",
+  "depth": 1,
+  "advantage_min": 0.0,
+  "repos": [
+    "aura-build",
+    "aura-typeplay",
+    "aura-pad",
+    "aura-redis",
+    "aura-maintainer"
+  ],
+  "weights": {
+    "eval_fail": -10.0,
+    "match": 5.0,
+    "refuse_correct": 2.0
+  }
+}

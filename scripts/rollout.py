@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -1499,6 +1500,334 @@ def rollout_fp_aura(cfg: dict, depth: int, forks: int, plant_id: str) -> tuple[l
     return hops, traj
 
 
+# Closed excerpts. The hot name is a weak stub so the real body can take advantage.
+# typeplay-num uses 2-arg hash-ref: this host rejects the 3-arg call in the repo,
+# and a missing key is (), which is not a number, so the default arm still matches.
+SIBLING_PLANTS: list[dict] = [
+    {
+        "repo": "aura-build",
+        "file": "aura/compat.aura",
+        "name": "even?",
+        "frozen": [],
+        "probe_name": "even",
+        "intent": "Rebind even? so n modulo 2 equal to 0 is true",
+        "source": "(define even? (lambda (n) #f))",
+        "probe": "(list (even? 2) (even? 3))",
+        "expect": [True, False],
+        "forks": [
+            {"kind": "synthesis", "summary": "even-real", "body": "(lambda (n) (= (modulo n 2) 0))"},
+            {"kind": "synthesis", "summary": "even-odd", "body": "(lambda (n) (= (modulo n 2) 1))"},
+            {"kind": "refuse", "summary": "hold-stub", "why": "hold the planted stub"},
+        ],
+    },
+    {
+        "repo": "aura-typeplay",
+        "file": "aura/typeplay_session.aura",
+        "name": "typeplay-num",
+        "frozen": [],
+        "probe_name": "typeplay-num",
+        "intent": "Rebind typeplay-num so a numeric hash field is kept and any other value returns the default",
+        "source": "(define typeplay-num (lambda (h key default) default))",
+        "probe": '(list (typeplay-num (hash "accuracy" 0.5) "accuracy" 1.0) (typeplay-num (hash) "missing" 1.0))',
+        "expect": [0.5, 1.0],
+        "forks": [
+            {
+                "kind": "synthesis",
+                "summary": "typeplay-num-real",
+                "body": "(lambda (h key default) (let ((v (hash-ref h key))) (if (number? v) v default)))",
+            },
+            {"kind": "synthesis", "summary": "typeplay-num-zero", "body": "(lambda (h key default) 0)"},
+            {"kind": "refuse", "summary": "hold-stub", "why": "hold the planted stub"},
+        ],
+    },
+    {
+        "repo": "aura-pad",
+        "file": "soft/pad/edit.aura",
+        "name": "pad:es-col",
+        "frozen": ["pad:nth"],
+        "probe_name": "es-col",
+        "intent": "Rebind pad:es-col so the column is field 2 of the editor state",
+        "source": "(define pad:nth (lambda (xs i) (list-ref xs i)))\n(define pad:es-col (lambda (st) 0))",
+        "probe": '(list (pad:es-col (list "L" 1 4 "k" "m" "u")))',
+        "expect": [4],
+        "forks": [
+            {"kind": "synthesis", "summary": "pad-es-col-real", "body": "(lambda (st) (pad:nth st 2))"},
+            {"kind": "synthesis", "summary": "pad-es-col-head", "body": "(lambda (st) (pad:nth st 0))"},
+            {"kind": "refuse", "summary": "hold-stub", "why": "hold the planted stub"},
+        ],
+    },
+    {
+        "repo": "aura-redis",
+        "file": "src/redis/adaptive_body.aura",
+        "name": "adaptive-choose",
+        "frozen": ["*ad-min-ops*"],
+        "probe_name": "adaptive-choose",
+        "intent": "Rebind adaptive-choose: under min-ops stay empty; a write or miss spike returns lfu; a read-heavy hit returns lru",
+        "source": '(define *ad-min-ops* 40)\n(define adaptive-choose (lambda (dgets dsets dhits dmisses) ""))',
+        "probe": "(list (adaptive-choose 10 100 5 5) (adaptive-choose 500 10 480 20) (adaptive-choose 50 50 40 10))",
+        "expect": ["lfu", "lru", ""],
+        "forks": [
+            {
+                "kind": "synthesis",
+                "summary": "adaptive-choose-real",
+                "body": (
+                    "(lambda (dgets dsets dhits dmisses) "
+                    "(let ((ops (+ dgets dsets))) "
+                    '(if (< ops *ad-min-ops*) "" '
+                    "(let ((hit-pct (if (> (+ dhits dmisses) 0) (quotient (* 100 dhits) (+ dhits dmisses)) 0)) "
+                    "(miss-pct (if (> (+ dhits dmisses) 0) (quotient (* 100 dmisses) (+ dhits dmisses)) 0))) "
+                    '(if (and (>= dsets dgets) (> miss-pct 30)) "lfu" '
+                    '(if (> dsets (* dgets 2)) "lfu" '
+                    '(if (and (> dgets (* dsets 3)) (>= hit-pct 50)) "lru" '
+                    '(if (and (> dgets (* dsets 5)) (>= hit-pct 60)) "lru" ""))))))))'
+                ),
+            },
+            {
+                "kind": "synthesis",
+                "summary": "adaptive-always-lru",
+                "body": '(lambda (dgets dsets dhits dmisses) "lru")',
+            },
+            {"kind": "refuse", "summary": "hold-stub", "why": "hold the planted stub"},
+        ],
+    },
+    {
+        "repo": "aura-maintainer",
+        "file": "agent/maintainer.aura",
+        "name": "deny?",
+        "frozen": ["contains?", "*deny*"],
+        "probe_name": "deny",
+        "intent": "Rebind deny? so text that contains a denied token returns true",
+        "source": (
+            '(define *deny* (quote ("ffi" "socket" "c-func" "read-file" "write-file" "getenv" "syscall" "plugin" ".so")))\n'
+            "(define contains? (lambda (s pat) "
+            "(let ((n (string-length s)) (m (string-length pat))) "
+            "(let loop ((i 0)) "
+            "(if (> (+ i m) n) #f "
+            "(if (string=? (substring s i (+ i m)) pat) #t (loop (+ i 1))))))))\n"
+            "(define deny? (lambda (s) #f))"
+        ),
+        "probe": '(list (deny? "use ffi now") (deny? "lambda only"))',
+        "expect": [True, False],
+        "forks": [
+            {
+                "kind": "synthesis",
+                "summary": "deny-real",
+                "body": "(lambda (s) (let loop ((ps *deny*)) (if (null? ps) #f (if (contains? s (car ps)) #t (loop (cdr ps))))))",
+            },
+            {"kind": "synthesis", "summary": "deny-always", "body": "(lambda (s) #t)"},
+            {"kind": "refuse", "summary": "hold-stub", "why": "hold the planted stub"},
+        ],
+    },
+]
+
+
+def sibling_proposals(plant: dict) -> list[dict]:
+    name = plant["name"]
+    out: list[dict] = []
+    for fork in plant["forks"]:
+        if fork.get("kind") == "refuse":
+            out.append(
+                {
+                    "kind": "refuse",
+                    "summary": fork["summary"],
+                    "target": [
+                        {"kind": "query", "op": "find", "name": name},
+                        {
+                            "kind": "refuse",
+                            "op": "capability",
+                            "name": name,
+                            "why": fork["why"],
+                        },
+                    ],
+                }
+            )
+        else:
+            out.append(
+                {
+                    "kind": "synthesis",
+                    "summary": fork["summary"],
+                    "target": _patch(name, fork["body"], fork["summary"]),
+                }
+            )
+    return out
+
+
+def emit_aura_match_hop(source: str, probe: str, props: list[dict], epoch: int) -> str:
+    """One hop: snapshot, sibling rebinds, one closed probe.
+
+    A mutation-failed list is truthy, so success is (eq? *rb* #t).
+    The probe form must itself be a non-empty list: #f inside that list is a value.
+    """
+    lines = [
+        ";; rollout --host aura sibling hop",
+        f"(set-code {scheme_string(source)})",
+        "(eval-current)",
+        '(display "EDSL_OBS ")',
+        f'(display (json-encode (hash "epoch" {int(epoch)} "vals" (try {probe} (catch (e) #f)))))',
+        "(newline)",
+        '(define *snap* (try (ast:snapshot "rollout") (catch (e) -1)))',
+        "(define *rb* #f)",
+        "(define *pv* #f)",
+    ]
+    for i, p in enumerate(props):
+        lines += [
+            f"(define *fi* {i})",
+            "(if (and (number? *snap*) (>= *snap* 0)) (try (ast:restore *snap*) (catch (e) #f)) #f)",
+            "(try (eval-current) (catch (e) #f))",
+        ]
+        if p.get("kind") == "synthesis":
+            tgt = p["target"][-1]
+            lines += [
+                "(set! *rb* (try (mutate:rebind "
+                f"{scheme_string(tgt['name'])} {scheme_string(tgt['body'])} {scheme_string(tgt['summary'])}) "
+                "(catch (e) #f)))",
+                "(set! *rb* (eq? *rb* #t))",
+                "(if *rb* (try (eval-current) (catch (e) #f)) #f)",
+            ]
+        else:
+            lines += ["(set! *rb* #t)"]
+        lines += [
+            f"(set! *pv* (if *rb* (try {probe} (catch (e) #f)) #f))",
+            "(if (and *rb* *pv*)",
+            "  (begin",
+            '    (display "EDSL_FORK ")',
+            "    (display (json-encode (hash \"i\" *fi* \"ok\" #t \"obs\" "
+            f"(hash \"epoch\" {int(epoch)} \"vals\" *pv*))))",
+            "    (newline))",
+            '  (begin (display "EDSL_FORK ") (display (json-encode (hash "i" *fi* "ok" #f))) (newline)))',
+        ]
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _git_rev(repo: str) -> str:
+    try:
+        out = subprocess.check_output(
+            ["git", "-C", str(ROOT.parent / repo), "rev-parse", "HEAD"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except (subprocess.CalledProcessError, OSError):
+        return ""
+    return out.strip()
+
+
+def _match_hop(
+    plant: dict,
+    prop: dict,
+    rw: dict,
+    adv: float,
+    fid: str,
+    parent: str,
+    obs_out: dict,
+    traj_id: str,
+    rev: str,
+    advantage_min: float,
+) -> dict:
+    sft = adv > advantage_min and rw.get("cut") != "eval_fail"
+    return {
+        "id": f"{traj_id}-h1-{prop['summary']}",
+        "kind": "hop",
+        "fork_id": fid,
+        "parent_id": parent,
+        "hop": 1,
+        "input": {
+            "source": plant["source"],
+            "intent": f"{plant['intent']}; proposal {prop['summary']}",
+            "observe": obs_out,
+        },
+        "target": prop["target"],
+        "reward": {"r": rw["r"], "advantage": adv, "components": rw["components"]},
+        "verify": {
+            "apply_ok": True,
+            "unchanged": list(plant["frozen"]),
+            "probes": {"match": rw.get("cut") == ""},
+        },
+        "sft": sft,
+        "proposer": "catalog",
+        "host": "aura",
+        "meta": {"repo": plant["repo"], "file": plant["file"], "rev": rev},
+    }
+
+
+def rollout_siblings(cfg: dict) -> list[tuple[list[dict], dict]]:
+    """One depth-1 aura traj per sibling repo. No dry-world stepper."""
+    from edsl_patch import PatchError
+    from farm import run_aura
+
+    groups: list[tuple[list[dict], dict]] = []
+    advantage_min = float(cfg.get("advantage_min", 0.0))
+    for plant in SIBLING_PLANTS:
+        repo = plant["repo"]
+        rev = _git_rev(repo)
+        traj_id = f"traj-aura-{repo}"
+        props = sibling_proposals(plant)
+        driver = emit_aura_match_hop(plant["source"], plant["probe"], props, 1)
+        if "fiber:spawn" in driver:
+            raise RuntimeError("fiber:spawn is not the fork")
+        hops: list[dict] = []
+        cut = "depth"
+        try:
+            raw = run_aura(driver, timeout=45)
+        except PatchError:
+            raw = ""
+            cut = "aura"
+        obs_raw, fork_rows = _parse_aura_hop(raw)
+        if cut != "aura" and not obs_raw:
+            cut = "aura"
+        if cut != "aura":
+            raw_vals = obs_raw.get("vals") if isinstance(obs_raw, dict) else None
+            base_vals = raw_vals if isinstance(raw_vals, list) else []
+            obs = {
+                "vals": base_vals,
+                "ok": True,
+                "plant": repo,
+                "hot": [plant["name"]],
+                "frozen": list(plant["frozen"]),
+                "epoch": 1,
+                "probe": plant["probe_name"],
+                "expect": plant["expect"],
+            }
+            scored = []
+            for i, prop in enumerate(props):
+                fr = next((f for f in fork_rows if f.get("i") == i), None)
+                if not fr or fr.get("ok") is not True:
+                    continue
+                post_vals = (fr.get("obs") or {}).get("vals")
+                post = {
+                    "vals": post_vals if isinstance(post_vals, list) else [],
+                    "ok": True,
+                    "plant": repo,
+                    "expect": plant["expect"],
+                }
+                rw = R.reward_siblings(obs, post, prop, cfg)
+                scored.append((prop, rw, f"root.{i}"))
+            if not scored:
+                cut = "aura"
+            else:
+                adv = _adv([s[1]["r"] for s in scored])
+                obs_out = {k: v for k, v in obs.items() if k != "expect"}
+                for i, (prop, rw, fid) in enumerate(scored):
+                    hops.append(
+                        _match_hop(
+                            plant, prop, rw, adv[i], fid, "root", obs_out, traj_id, rev, advantage_min
+                        )
+                    )
+        traj = {
+            "id": traj_id,
+            "kind": "traj",
+            "project": "siblings",
+            "plant": repo,
+            "host": "aura",
+            "hops": [h["id"] for h in hops],
+            "return": sum(h["reward"]["r"] for h in hops if h.get("sft")),
+            "cut": cut,
+            "meta": {"repo": repo, "file": plant["file"], "rev": rev},
+        }
+        groups.append((hops, traj))
+    return groups
+
+
 def main(argv: list[str] | None = None) -> int:
     known = list_reward_projects()
     ap = argparse.ArgumentParser()
@@ -1542,8 +1871,23 @@ def main(argv: list[str] | None = None) -> int:
     if args.proposers == "agent-ask":
         cfg = dict(cfg)
         cfg["proposers"] = "agent-ask"
+    if kind == "siblings" and args.host != "aura":
+        print("error: --project siblings requires --host aura", file=sys.stderr)
+        return 2
     out_path = Path(args.out) if args.out else ROOT / "data" / "raw" / f"rollout-{args.project}.jsonl"
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    if kind == "siblings":
+        groups = rollout_siblings(cfg)
+        n = 0
+        with out_path.open("w") as fh:
+            for hops, traj in groups:
+                for h in hops:
+                    fh.write(json.dumps(h, ensure_ascii=False) + "\n")
+                    n += 1
+                fh.write(json.dumps(traj, ensure_ascii=False) + "\n")
+                n += 1
+        print(f"ROLLOUT project={args.project} kind={kind} host={args.host} lines={n} out={out_path}")
+        return 0
     n = 0
     with out_path.open("w") as fh:
         for rnd in range(args.rounds):

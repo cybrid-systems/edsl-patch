@@ -187,6 +187,7 @@ class Tree(unittest.TestCase):
         self.assertIn("arith-core", ids)
         self.assertIn("kv-mini", ids)
         self.assertIn("list-fp", ids)
+        self.assertIn("siblings", ids)
 
     def test_unknown_project_exits_2(self):
         rc = RO.main(["--project", "no-such", "-o", str(ROOT / "data" / "raw" / "nope.jsonl")])
@@ -282,6 +283,75 @@ class Tree(unittest.TestCase):
             self.assertFalse(h.get("sft"))
 
 
+class RewardSiblings(unittest.TestCase):
+    def test_boolean_match_is_not_eval_fail(self):
+        cfg = json.loads((ROOT / "catalog" / "rewards" / "siblings.json").read_text())
+        action = {"kind": "synthesis"}
+        full = R.reward_siblings(
+            {},
+            {"vals": [True, False], "ok": True, "expect": [True, False]},
+            action,
+            cfg,
+        )
+        half = R.reward_siblings(
+            {},
+            {"vals": [False, False], "ok": True, "expect": [True, False]},
+            action,
+            cfg,
+        )
+        self.assertEqual(full["r"], 5.0)
+        self.assertEqual(full["cut"], "")
+        self.assertEqual(half["r"], 2.5)
+        self.assertNotEqual(half["cut"], "eval_fail")
+
+    def test_driver_counts_only_hash_t_and_names_five_repos(self):
+        from edsl_patch import ILLEGAL_HINTS, validate_patch
+
+        src = RO.emit_aura_match_hop(
+            "(define even? (lambda (n) #f))",
+            "(list (even? 2) (even? 3))",
+            [
+                {
+                    "kind": "synthesis",
+                    "summary": "even-real",
+                    "target": RO._patch("even?", "(lambda (n) (= (modulo n 2) 0))", "even-real"),
+                }
+            ],
+            1,
+        )
+        self.assertIn("(set! *rb* (eq? *rb* #t))", src)
+        self.assertNotIn("fiber:spawn", src)
+        self.assertNotIn("synthesize:define", src)
+        repos = [p["repo"] for p in RO.SIBLING_PLANTS]
+        self.assertEqual(
+            repos,
+            ["aura-build", "aura-typeplay", "aura-pad", "aura-redis", "aura-maintainer"],
+        )
+        cfg = json.loads((ROOT / "catalog" / "rewards" / "siblings.json").read_text())
+        self.assertEqual(cfg["kind"], "siblings")
+        self.assertEqual(cfg["repos"], repos)
+        for plant in RO.SIBLING_PLANTS:
+            obs = {"hot": [plant["name"]], "frozen": list(plant["frozen"])}
+            summaries = []
+            for prop in RO.sibling_proposals(plant):
+                validate_patch(prop["target"], observe=obs)
+                last = prop["target"][-1]
+                summaries.append(last.get("summary") or last.get("why"))
+                body = last.get("body") or ""
+                low = body.lower()
+                for hint in ILLEGAL_HINTS:
+                    self.assertNotIn(hint, low)
+                    self.assertNotIn(hint, body)
+            self.assertTrue(any(str(s).endswith("-real") for s in summaries))
+            self.assertIn("hold the planted stub", summaries)
+
+    def test_siblings_dry_world_exits_2(self):
+        out = Path(tempfile.mkdtemp()) / "rollout-siblings.jsonl"
+        rc = RO.main(["--project", "siblings", "--host", "dry-world", "-o", str(out)])
+        self.assertEqual(rc, 2)
+        self.assertFalse(out.exists())
+
+
 def _aura_available() -> bool:
     try:
         from apply import pick_bin
@@ -357,6 +427,27 @@ class AuraHost(unittest.TestCase):
         self.assertTrue(hops)
         self.assertEqual(traj.get("host"), "aura")
         self.assertIn("vals", hops[0]["input"]["observe"])
+
+    def test_siblings_real_body_wins(self):
+        cfg = json.loads((ROOT / "catalog" / "rewards" / "siblings.json").read_text())
+        groups = RO.rollout_siblings(cfg)
+        self.assertEqual([traj["plant"] for _, traj in groups], cfg["repos"])
+        for hops, traj in groups:
+            self.assertEqual(traj.get("host"), "aura")
+            self.assertEqual(traj.get("cut"), "depth")
+            self.assertTrue(hops)
+            self.assertTrue(all(h["verify"]["apply_ok"] is True for h in hops))
+            self.assertTrue(all(h["input"]["intent"].strip() for h in hops))
+            blob = json.dumps(hops)
+            self.assertNotIn("fiber:spawn", blob)
+            real = [h for h in hops if str(h["target"][-1].get("summary", "")).endswith("-real")]
+            self.assertEqual(len(real), 1)
+            self.assertTrue(real[0]["sft"])
+            self.assertGreater(real[0]["reward"]["advantage"], 0)
+            others = [h["reward"]["r"] for h in hops if h is not real[0]]
+            self.assertGreater(real[0]["reward"]["r"], max(others))
+            sft_hops = [h for h in hops if h.get("sft")]
+            self.assertEqual(sft_hops, real)
 
 
 if __name__ == "__main__":

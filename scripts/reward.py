@@ -182,3 +182,13 @@ def reward_kv(
     comp["match"] = _w(cfg, "match", 5.0) * frac
     cut = "" if hits == n else "mismatch"
     return {"r": comp["match"], "components": comp, "cut": cut}
+
+
+def reward_siblings(
+    pre: dict[str, Any],
+    post: dict[str, Any],
+    action: dict[str, Any],
+    cfg: dict[str, Any],
+) -> dict[str, Any]:
+    """Match-count on a closed probe. #t/#f and "" are values, not failures."""
+    return reward_kv(pre, post, action, cfg)
