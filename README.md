@@ -48,6 +48,12 @@ edsl-patch/
 └── tests/              # legal + apply + teacher + farm + budget
 ```
 
+## Collection pipeline v2 (real code)
+
+`python3 -m scripts.pipeline collect --repo <path> --out <dir>` runs every stage on a pinned Aura
+host: per-define units → closed dependency context → strict apply + repo tests → KEEP/ROLLBACK +
+per-define intent → dedup + time holdout → quality report + export gates. See `schema/pipeline.md`.
+
 ## Apply (host)
 
 Sibling checkouts, same parent as Strand:
