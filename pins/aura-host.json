@@ -1,0 +1,13 @@
+{
+  "aura_sha": "3b213503eb45cc1dd84261e9864638fa42ca590a",
+  "aura_subject": "fix(eval): keep a top-level define installed by eval (#4359)",
+  "bin_sha256": [
+    "1296bd4efbe6ecd79ba2dab189fc875037bcf0fa9ff0c7e1e3361527815b37c1"
+  ],
+  "build": "cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DAURA_ENABLE_GCC_ICE_WORKAROUND=ON -DAURA_ENABLE_GIT=ON -DAURA_ENABLE_M4=ON -DAURA_ENABLE_STRATEGY=ON -DAURA_ENABLE_SYNTHESIZE=ON -DAURA_ENABLE_TCP=ON -DAURA_PRODUCTION_PACK=ON -DAURA_LINK_JOBS=1; ninja -C build aura (image ghcr.io/cybrid-systems/dev:v1.0.9)",
+  "bin_hints": [
+    "../aura-3b21350/build/aura",
+    "../edsl-patch-review/aura-3b21350/build/aura"
+  ],
+  "note": "Collection refuses to run unless sha256(AURA_BIN) is listed here and the host self-test passes. Add a new binary with: python3 -m scripts.pipeline pin --aura-bin <path> --aura-src <checkout>"
+}
