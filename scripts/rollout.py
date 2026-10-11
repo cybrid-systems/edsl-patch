@@ -991,6 +991,10 @@ def rollout_arith_aura(cfg: dict, depth: int, forks: int, plant_id: str) -> tupl
     arity = 2 if name == "add" else 1
     grid = cfg.get("grid2") if arity == 2 else cfg.get("grid", [-3, -1, 0, 1, 2])
     expect = _arith_expect(cfg, plant_id)
+    # Same host hole as the controller: set-code drops arguments -1 and -2.
+    from controller import aura_safe_grid
+
+    grid, expect = aura_safe_grid(list(grid), list(expect) if expect else None, arity)
     source = spec["source"]
     hops: list[dict] = []
     parent = "root"
@@ -1039,7 +1043,8 @@ def rollout_arith_aura(cfg: dict, depth: int, forks: int, plant_id: str) -> tupl
         best_i = max(range(len(scored)), key=lambda i: scored[i][2]["r"])
         obs_out = {k: v for k, v in obs.items() if k != "expect"}
         for i, (p, post, rw, fid) in enumerate(scored):
-            sft = adv[i] > float(cfg.get("advantage_min", 0.0)) and rw.get("cut") != "eval_fail"
+            # Exact probe match only. A partial mse still has cut "mismatch".
+            sft = adv[i] > float(cfg.get("advantage_min", 0.0)) and rw.get("cut") == ""
             hops.append(
                 {
                     "id": f"{traj_id}-h{hop}-{p['summary']}",
@@ -1053,8 +1058,13 @@ def rollout_arith_aura(cfg: dict, depth: int, forks: int, plant_id: str) -> tupl
                         "observe": obs_out,
                     },
                     "target": p["target"],
-                    "reward": {"r": rw["r"], "advantage": adv[i], "components": rw["components"]},
-                    "verify": {"apply_ok": True, "probes": {"arith_grid": True}},
+                    "reward": {
+                        "r": rw["r"],
+                        "advantage": adv[i],
+                        "components": rw["components"],
+                        "cut": rw.get("cut") or "",
+                    },
+                    "verify": {"apply_ok": True, "probes": {"arith_grid": rw.get("cut") == ""}},
                     "sft": sft,
                     "host": "aura",
                 }

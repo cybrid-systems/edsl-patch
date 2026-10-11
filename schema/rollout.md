@@ -83,6 +83,33 @@ cuts the chain. That cut is a **refuse** gold if observe worsened, not a `restor
 
 Do not train `restore` / `skip` / `yield` as targets. Snapshot restore is the **sandbox implementation**, not the label.
 
+## Controller (depth-1 arith group)
+
+`scripts/controller.py` is the closed loop for one plant. K patches share one source, one intent, and one measured observe. The host scores the group. `advantage = r − mean(r)`.
+
+Gates, before the probe counts as a match:
+
+| Result | `r` | `cut` |
+|--------|-----|-------|
+| schema / illegal body / frozen or non-hot name | −20 | `schema` |
+| `mutate:rebind` is not `#t` | −10 | `rebind` |
+| `eval-current` fails | −8 | `eval_fail` |
+| synthesis leaves the probe unchanged | 0 | `identity` |
+| probe matches the plant expect | `reward_arith` | empty |
+
+SFT gold is `cut == ""` and `advantage > 0`. That is an exact grid match that beat the group. A hop with `cut` `identity` or `t_break` stays out of `export_sft.py`. The driver forks with `ast:snapshot`, and a rebind counts only when it is `#t`.
+
+On this Aura build, a `set-code` / `eval-current` lambda drops arguments −1 and −2 (the call returns `()`). The aura probe omits those inputs and the same positions of `expect`. `rollout.py --host aura --project arith-core` uses that same probe, and a hop is SFT only when the match is exact. Dry-world still uses the full grid, so do not mix the two hosts in one training file.
+
+```bash
+python3 scripts/controller.py --project arith-core --plant arith-core.p0 --host dry-world
+python3 scripts/controller.py --project arith-core --plant arith-core.p0 --host aura --forks 8
+python3 scripts/controller.py --project arith-core --plant arith-core.p0 --host aura \
+  --proposer completions --completions candidates.jsonl --export /tmp/arith-sft.jsonl
+```
+
+`--project` other than `arith-core`, or `--depth` other than 1, exits 2. Completions are one JSON object per line: `{"plant":"arith-core.p0","target":[...]}`.
+
 ## CLI
 
 ```bash

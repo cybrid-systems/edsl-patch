@@ -405,7 +405,14 @@ class AuraHost(unittest.TestCase):
         hops, traj = RO.rollout_arith_aura(cfg, depth=1, forks=3, plant_id="arith-core.p0")
         self.assertTrue(hops)
         self.assertEqual(traj.get("host"), "aura")
+        vals = hops[0]["input"]["observe"]["vals"]
         self.assertIn("vals", hops[0]["input"]["observe"])
+        self.assertNotIn(None, vals)
+        self.assertNotIn(-1, vals)
+        self.assertNotIn(-2, vals)
+        for hop in hops:
+            if hop.get("sft"):
+                self.assertEqual(hop["reward"].get("cut"), "")
 
     def test_kv_aura_get_lookup(self):
         cfg = json.loads((ROOT / "catalog" / "rewards" / "kv-mini.json").read_text())
