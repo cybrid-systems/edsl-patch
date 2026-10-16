@@ -1,0 +1,88 @@
+{
+  "pipeline_version": "2.0.0",
+  "edsl_patch_head": "212a250e9a9586f75947b830015eb8f0ecb4caae",
+  "edsl_patch_dirty": true,
+  "pipeline_code_sha256": "e26228513ebf2b8ab739627bc3d5255799081e4615e4987531e6d885a5d0fb5a",
+  "command": "python3 -m scripts.pipeline collect --repo /workspace/edsl-roll-src/aura-pad --repo /workspace/edsl-roll-src/aura-redis --out /workspace/edsl-roll-runs/batch2 --intent llm --workers 6 --export",
+  "host": {
+    "aura_sha": "133d701688aeb18044fa2e46410b3dbb0cb012e6",
+    "src_sha": "133d701688aeb18044fa2e46410b3dbb0cb012e6",
+    "bin": "/workspace/aura-edsl-roll/build/aura",
+    "bin_sha256": "bc0401d5068dbc7040ff231d896d199004b4cf633a981a6d8f55674456402867",
+    "lib": "/workspace/aura-edsl-roll/lib",
+    "selftest": {
+      "ok": true,
+      "cases": {
+        "accepts-plain-rebind": {
+          "want": true,
+          "got": true
+        },
+        "rejects-unbound-call": {
+          "want": false,
+          "got": false
+        },
+        "rejects-arity-mismatch": {
+          "want": false,
+          "got": false
+        }
+      }
+    }
+  },
+  "repos": {
+    "aura-pad": {
+      "path": "/workspace/edsl-roll-src/aura-pad",
+      "head": "3cf0f86e7d58d7b61e2c6dd51e1fe23e887c5495",
+      "remote": "https://github.com/cybrid-systems/aura-pad.git"
+    },
+    "aura-redis": {
+      "path": "/workspace/edsl-roll-src/aura-redis",
+      "head": "e8840d7cbdb5a55e4f3a7d5d81a792d7f58edb5a",
+      "remote": "https://github.com/cybrid-systems/aura-redis.git"
+    }
+  },
+  "options": {
+    "intent": "llm",
+    "minimax_env": null,
+    "tests": true,
+    "child_helpers": true,
+    "max_commits": null,
+    "max_units": null,
+    "workers": 6,
+    "eval_share": 0.15,
+    "budget": 12000,
+    "keep_trees": false
+  },
+  "started": "2026-10-16T07:29:55+0800",
+  "intent_mode": "llm (MiniMax-M3 @ https://api.minimaxi.com/v1)",
+  "intent_llm_rejected": {
+    "too-long": 1,
+    "auto-line": 1
+  },
+  "finished": "2026-10-16T08:05:22+0800",
+  "files": {
+    "eval.jsonl": {
+      "rows": 21,
+      "sha256": "af4f595620ccc69103aeeed7cdf4faeb0ba5a73d9fe905c1f7c48cb9409a9d74"
+    },
+    "labeled.jsonl": {
+      "rows": 252,
+      "sha256": "3e2e5204a0f71b269f3bb24623f7bf17f3f99563ae2412a5500fd3bad3cdfd69"
+    },
+    "negatives-eval.jsonl": {
+      "rows": 1,
+      "sha256": "9b5ebe89d029e7bb4b1052574c59db3fdb08531ad991dd93206652d6161d8e5e"
+    },
+    "negatives-train.jsonl": {
+      "rows": 16,
+      "sha256": "59c447639db4eba17ef8ad19c9b0325da443db337204f06acba2c14d3126bc5b"
+    },
+    "train.jsonl": {
+      "rows": 166,
+      "sha256": "5c8b5c670265f466d7c28ac9519384dc48b0dc6eb352084679d72d64d2a992c6"
+    },
+    "units.jsonl": {
+      "rows": 373,
+      "sha256": "11aaaa51476a8d103ed002c77eac51d432caf81a4126b1f779a2fd29ff5a4d71"
+    }
+  }
+}

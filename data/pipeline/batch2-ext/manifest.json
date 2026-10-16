@@ -1,0 +1,90 @@
+{
+  "pipeline_version": "2.0.0",
+  "edsl_patch_head": "212a250e9a9586f75947b830015eb8f0ecb4caae",
+  "edsl_patch_dirty": true,
+  "pipeline_code_sha256": "e26228513ebf2b8ab739627bc3d5255799081e4615e4987531e6d885a5d0fb5a",
+  "command": "python3 -m scripts.pipeline collect --repo /workspace/edsl-roll-src/aura-kernel-sink --repo /workspace/edsl-roll-src/aura-aima --repo /workspace/edsl-roll-src/aura-rl-sutton --out /workspace/edsl-roll-runs/batch2-ext --intent llm --workers 2 --export",
+  "host": {
+    "aura_sha": "133d701688aeb18044fa2e46410b3dbb0cb012e6",
+    "src_sha": "133d701688aeb18044fa2e46410b3dbb0cb012e6",
+    "bin": "/workspace/aura-edsl-roll/build/aura",
+    "bin_sha256": "bc0401d5068dbc7040ff231d896d199004b4cf633a981a6d8f55674456402867",
+    "lib": "/workspace/aura-edsl-roll/lib",
+    "selftest": {
+      "ok": true,
+      "cases": {
+        "accepts-plain-rebind": {
+          "want": true,
+          "got": true
+        },
+        "rejects-unbound-call": {
+          "want": false,
+          "got": false
+        },
+        "rejects-arity-mismatch": {
+          "want": false,
+          "got": false
+        }
+      }
+    }
+  },
+  "repos": {
+    "aura-kernel-sink": {
+      "path": "/workspace/edsl-roll-src/aura-kernel-sink",
+      "head": "172527b676f97dfb6c17f8b4dc72fe24f861cf87",
+      "remote": "https://github.com/cybrid-systems/aura-kernel-sink.git"
+    },
+    "aura-aima": {
+      "path": "/workspace/edsl-roll-src/aura-aima",
+      "head": "511726901da3b777b96309fa23e71d16411f8aa0",
+      "remote": "https://github.com/cybrid-systems/aura-aima.git"
+    },
+    "aura-rl-sutton": {
+      "path": "/workspace/edsl-roll-src/aura-rl-sutton",
+      "head": "115d803cd73c59a097fff9e5608218eb02178542",
+      "remote": "https://github.com/cybrid-systems/aura-rl-sutton.git"
+    }
+  },
+  "options": {
+    "intent": "llm",
+    "minimax_env": null,
+    "tests": true,
+    "child_helpers": true,
+    "max_commits": null,
+    "max_units": null,
+    "workers": 2,
+    "eval_share": 0.15,
+    "budget": 12000,
+    "keep_trees": false
+  },
+  "started": "2026-10-16T07:55:36+0800",
+  "intent_mode": "llm (MiniMax-M3 @ https://api.minimaxi.com/v1)",
+  "intent_llm_rejected": {},
+  "finished": "2026-10-16T07:57:44+0800",
+  "files": {
+    "eval.jsonl": {
+      "rows": 7,
+      "sha256": "136cd5cd421a84f66cfed3efd5e91494831a166860a63596805b03a9b3947503"
+    },
+    "labeled.jsonl": {
+      "rows": 97,
+      "sha256": "f6e6a32f25dd75ebac64b402f527e81e2157957f36c56efdcc59481ece5c5b45"
+    },
+    "negatives-eval.jsonl": {
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "negatives-train.jsonl": {
+      "rows": 2,
+      "sha256": "5b3ce25ec6626fb8ada35ba31c5c66b67af90719e8d38947441f93aff92782a4"
+    },
+    "train.jsonl": {
+      "rows": 59,
+      "sha256": "5436d3d83305f02f2266754dd8c645e799f92ed3909d12f1018b6447958f7c2c"
+    },
+    "units.jsonl": {
+      "rows": 115,
+      "sha256": "083668f526a9397848267a3bb2597e2d1139f428f7421b7b0b74d7e74a44c65b"
+    }
+  }
+}

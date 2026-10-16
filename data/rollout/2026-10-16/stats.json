@@ -1,0 +1,191 @@
+[
+ {
+  "file": "rollout-arith-core.jsonl",
+  "trajs": 4,
+  "hops": 27,
+  "synthesis": 23,
+  "refuse": 4,
+  "gold": 17,
+  "gold_rate": 0.63,
+  "gold_syn": 17,
+  "gold_ref": 0,
+  "hop_cuts": {
+   "mismatch": 7,
+   "ok": 20
+  },
+  "traj_cuts": {
+   "depth": 4
+  },
+  "ret": 25.8
+ },
+ {
+  "file": "rollout-kv-mini.jsonl",
+  "trajs": 4,
+  "hops": 14,
+  "synthesis": 10,
+  "refuse": 4,
+  "gold": 5,
+  "gold_rate": 0.357,
+  "gold_syn": 4,
+  "gold_ref": 1,
+  "hop_cuts": {},
+  "traj_cuts": {
+   "depth": 4
+  },
+  "ret": 20.0
+ },
+ {
+  "file": "rollout-list-fp.jsonl",
+  "trajs": 4,
+  "hops": 10,
+  "synthesis": 6,
+  "refuse": 4,
+  "gold": 4,
+  "gold_rate": 0.4,
+  "gold_syn": 0,
+  "gold_ref": 4,
+  "hop_cuts": {},
+  "traj_cuts": {
+   "depth": 4
+  },
+  "ret": 20.0
+ },
+ {
+  "file": "rollout-session-hot-ask.jsonl",
+  "trajs": 4,
+  "hops": 32,
+  "synthesis": 24,
+  "refuse": 8,
+  "gold": 24,
+  "gold_rate": 0.75,
+  "gold_syn": 16,
+  "gold_ref": 8,
+  "hop_cuts": {},
+  "traj_cuts": {
+   "depth": 4
+  },
+  "ret": 24.0
+ },
+ {
+  "file": "rollout-session-hot.jsonl",
+  "trajs": 4,
+  "hops": 32,
+  "synthesis": 24,
+  "refuse": 8,
+  "gold": 24,
+  "gold_rate": 0.75,
+  "gold_syn": 16,
+  "gold_ref": 8,
+  "hop_cuts": {},
+  "traj_cuts": {
+   "depth": 4
+  },
+  "ret": 24.0
+ },
+ {
+  "file": "rollout-twin-step-ask.jsonl",
+  "trajs": 4,
+  "hops": 18,
+  "synthesis": 18,
+  "refuse": 0,
+  "gold": 9,
+  "gold_rate": 0.5,
+  "gold_syn": 9,
+  "gold_ref": 0,
+  "hop_cuts": {},
+  "traj_cuts": {
+   "depth": 3,
+   "aura": 1
+  },
+  "ret": 19.41
+ },
+ {
+  "file": "rollout-twin-step.jsonl",
+  "trajs": 4,
+  "hops": 30,
+  "synthesis": 21,
+  "refuse": 9,
+  "gold": 13,
+  "gold_rate": 0.433,
+  "gold_syn": 10,
+  "gold_ref": 3,
+  "hop_cuts": {},
+  "traj_cuts": {
+   "refuse": 4
+  },
+  "ret": 36.78
+ },
+ {
+  "file": "controller-arith-core.p0.jsonl",
+  "trajs": 1,
+  "hops": 8,
+  "synthesis": 7,
+  "refuse": 1,
+  "gold": 1,
+  "gold_rate": 0.125,
+  "gold_syn": 1,
+  "gold_ref": 0,
+  "hop_cuts": {
+   "mismatch": 7,
+   "ok": 1
+  },
+  "traj_cuts": {
+   "depth": 1
+  },
+  "ret": 5.0
+ },
+ {
+  "file": "controller-arith-core.p1.jsonl",
+  "trajs": 1,
+  "hops": 8,
+  "synthesis": 7,
+  "refuse": 1,
+  "gold": 7,
+  "gold_rate": 0.875,
+  "gold_syn": 7,
+  "gold_ref": 0,
+  "hop_cuts": {
+   "ok": 8
+  },
+  "traj_cuts": {
+   "depth": 1
+  },
+  "ret": 9.1
+ },
+ {
+  "file": "controller-arith-core.p3.jsonl",
+  "trajs": 1,
+  "hops": 3,
+  "synthesis": 2,
+  "refuse": 1,
+  "gold": 2,
+  "gold_rate": 0.667,
+  "gold_syn": 2,
+  "gold_ref": 0,
+  "hop_cuts": {
+   "ok": 3
+  },
+  "traj_cuts": {
+   "depth": 1
+  },
+  "ret": 2.6
+ },
+ {
+  "file": "controller-arith-core.p4.jsonl",
+  "trajs": 1,
+  "hops": 8,
+  "synthesis": 7,
+  "refuse": 1,
+  "gold": 7,
+  "gold_rate": 0.875,
+  "gold_syn": 7,
+  "gold_ref": 0,
+  "hop_cuts": {
+   "ok": 8
+  },
+  "traj_cuts": {
+   "depth": 1
+  },
+  "ret": 9.1
+ }
+]
