@@ -1,0 +1,269 @@
+{
+  "model": "MiniMax-M3.1-Flash",
+  "pool_candidates": 312,
+  "pool_sec": 7.3,
+  "pool_repos": [
+    {
+      "repo": "aura-rl-sutton",
+      "head": "115d803cd73c59a097fff9e5608218eb02178542",
+      "defines": 423,
+      "tried": 64,
+      "closed": 45,
+      "drop": {
+        "no-callee": 13,
+        "context-load": 4
+      }
+    },
+    {
+      "repo": "aura-aima",
+      "head": "511726901da3b777b96309fa23e71d16411f8aa0",
+      "defines": 104,
+      "tried": 102,
+      "closed": 45,
+      "drop": {
+        "no-callee": 37,
+        "identity-error": 7
+      }
+    },
+    {
+      "repo": "aura-rocks",
+      "head": "9508f573405eb06d63490042d6b6f89a4b1895ec",
+      "defines": 321,
+      "tried": 87,
+      "closed": 45,
+      "drop": {
+        "no-callee": 24,
+        "context-load": 1,
+        "identity-reject": 2
+      }
+    },
+    {
+      "repo": "aura-kernel-sink",
+      "head": "f089a4a38fdf994f170fcd927d2fe9c2bd5cf3a4",
+      "defines": 224,
+      "tried": 112,
+      "closed": 45,
+      "drop": {
+        "no-callee": 44,
+        "identity-reject": 6,
+        "identity-error": 3,
+        "context-load": 1
+      }
+    },
+    {
+      "repo": "aura-redis",
+      "head": "e8840d7cbdb5a55e4f3a7d5d81a792d7f58edb5a",
+      "defines": 50,
+      "tried": 50,
+      "closed": 30,
+      "drop": {
+        "no-callee": 20
+      }
+    },
+    {
+      "repo": "aura-pad",
+      "head": "3cf0f86e7d58d7b61e2c6dd51e1fe23e887c5495",
+      "defines": 1270,
+      "tried": 90,
+      "closed": 45,
+      "drop": {
+        "no-callee": 22,
+        "abs-path": 6,
+        "identity-error": 1,
+        "identity-reject": 3
+      }
+    },
+    {
+      "repo": "aura-harness",
+      "head": "4a6c7f40ebd02a096b6d6d084d2a9ee2d3de498d",
+      "defines": 158,
+      "tried": 149,
+      "closed": 45,
+      "drop": {
+        "no-callee": 44,
+        "identity-reject": 23,
+        "identity-error": 31
+      }
+    },
+    {
+      "repo": "aura-coder",
+      "head": "2aa03ea5331c05e74c159d7ed194dd67edadc177",
+      "defines": 24,
+      "tried": 24,
+      "closed": 12,
+      "drop": {
+        "no-callee": 12
+      }
+    }
+  ],
+  "defines": 300,
+  "wall_sec": 3737.8,
+  "usage": {
+    "prompt_tokens": 1017334,
+    "completion_tokens": 4935212,
+    "calls": 1278
+  },
+  "tasks": {
+    "locate": {
+      "n": 300,
+      "schema_ok": 250,
+      "pass": 236,
+      "exact": 0,
+      "fail_reasons": {
+        "wrong-target": 2,
+        "schema": 46,
+        "describe-failed": 3,
+        "body-changed": 12,
+        "parse": 1
+      },
+      "latency_p50": 20.15,
+      "by_repo": {
+        "aura-pad": {
+          "n": 44,
+          "pass": 42
+        },
+        "aura-rocks": {
+          "n": 43,
+          "pass": 36
+        },
+        "aura-aima": {
+          "n": 42,
+          "pass": 33
+        },
+        "aura-redis": {
+          "n": 29,
+          "pass": 18
+        },
+        "aura-rl-sutton": {
+          "n": 41,
+          "pass": 29
+        },
+        "aura-harness": {
+          "n": 42,
+          "pass": 32
+        },
+        "aura-kernel-sink": {
+          "n": 44,
+          "pass": 36
+        },
+        "None": {
+          "n": 3,
+          "pass": 0
+        },
+        "aura-coder": {
+          "n": 12,
+          "pass": 10
+        }
+      }
+    },
+    "deps": {
+      "n": 300,
+      "schema_ok": 259,
+      "pass": 229,
+      "exact": 0,
+      "fail_reasons": {
+        "schema": 38,
+        "deps-mismatch": 17,
+        "describe-failed": 3,
+        "body-changed": 13
+      },
+      "latency_p50": 12.96,
+      "by_repo": {
+        "aura-pad": {
+          "n": 44,
+          "pass": 39
+        },
+        "aura-rocks": {
+          "n": 43,
+          "pass": 30
+        },
+        "aura-aima": {
+          "n": 42,
+          "pass": 35
+        },
+        "aura-redis": {
+          "n": 29,
+          "pass": 20
+        },
+        "aura-rl-sutton": {
+          "n": 41,
+          "pass": 28
+        },
+        "aura-harness": {
+          "n": 42,
+          "pass": 30
+        },
+        "aura-kernel-sink": {
+          "n": 44,
+          "pass": 37
+        },
+        "None": {
+          "n": 3,
+          "pass": 0
+        },
+        "aura-coder": {
+          "n": 12,
+          "pass": 10
+        }
+      }
+    },
+    "fill": {
+      "n": 300,
+      "schema_ok": 221,
+      "pass": 123,
+      "exact": 17,
+      "fail_reasons": {
+        "behavior-diff": 49,
+        "host-reject": 44,
+        "schema": 42,
+        "parse": 34,
+        "describe-failed": 3,
+        "host-error": 5
+      },
+      "latency_p50": 60.98,
+      "by_repo": {
+        "aura-pad": {
+          "n": 44,
+          "pass": 17
+        },
+        "aura-rocks": {
+          "n": 43,
+          "pass": 18
+        },
+        "aura-aima": {
+          "n": 42,
+          "pass": 25
+        },
+        "aura-redis": {
+          "n": 29,
+          "pass": 6
+        },
+        "aura-rl-sutton": {
+          "n": 41,
+          "pass": 18
+        },
+        "aura-harness": {
+          "n": 42,
+          "pass": 21
+        },
+        "aura-kernel-sink": {
+          "n": 44,
+          "pass": 14
+        },
+        "None": {
+          "n": 3,
+          "pass": 0
+        },
+        "aura-coder": {
+          "n": 12,
+          "pass": 4
+        }
+      },
+      "behavior": {
+        "pass": 93,
+        "fail": 49,
+        "no-signal": 30
+      }
+    }
+  }
+}
