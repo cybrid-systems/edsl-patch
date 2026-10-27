@@ -25,6 +25,8 @@ import json
 import random
 import re
 import sys
+import subprocess
+import threading
 import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -32,12 +34,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from apply import apply_patch, apply_succeeded  # noqa: E402
+from apply import apply_patch, apply_succeeded, run_aura_program  # noqa: E402
 from edsl_patch import ILLEGAL_HINTS, SYSTEM_CONTRACT, PatchError, validate_patch  # noqa: E402
 from export_sft import dedupe_context  # noqa: E402
-from parse_aura import bodies_equivalent, code_symbols, lambda_param_form  # noqa: E402
+from parse_aura import bodies_equivalent, code_symbols, lambda_param_form, lambda_params, patch_for  # noqa: E402
 from pipeline.intent import load_minimax  # noqa: E402
-from pipeline.units import top_forms  # noqa: E402
+from pipeline.context import RepoIndex, build_context  # noqa: E402
+from pipeline.label import load_check  # noqa: E402
+from pipeline.report import ABS  # noqa: E402
+from pipeline.units import is_harness, ls_aura, top_forms  # noqa: E402
+from parse_aura import MAX_FOCUS_CHARS  # noqa: E402
 
 TASKS = ("locate", "deps", "fill")
 DEFAULT_MODEL = "MiniMax-M3.1-Flash"
@@ -110,8 +116,151 @@ def candidates(rows: list[dict], min_body: int, max_body: int) -> list[dict]:
                 continue
             seen.add(key)
             out.append({"source": src, "name": f.name, "body": f.body, "form": f.text, "start": f.start, "end": f.end,
-                        "callees": callees, "origin": row.get("id")})
+                        "callees": callees, "origin": row.get("id"),
+                        "repo": ((row.get("meta") or {}).get("repo"))})
     return out
+
+
+def _cand_from_context(text: str, name: str, body: str, origin: str, repo: str) -> dict | None:
+    forms = top_forms(text)
+    names = {f.name for f in forms if f.kind == "define-fn" and f.name}
+    for f in forms:
+        if f.name == name and f.kind == "define-fn":
+            callees = sorted((code_symbols(f.body) & names) - {name})
+            if not callees:
+                return None
+            return {"source": text, "name": name, "body": f.body, "form": f.text, "start": f.start, "end": f.end,
+                    "callees": callees, "origin": origin, "repo": repo}
+    return None
+
+
+def repo_candidates(repo: Path, cap: int, seed: int, min_body: int, max_body: int, workers: int) -> tuple[list[dict], dict]:
+    """Closed single-define contexts at repo HEAD; identity rebind must pass the host gate."""
+    sha = subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
+    idx = RepoIndex.build(repo, sha)
+    raw = []
+    for rel in sorted(idx.files):
+        if is_harness(rel):
+            continue
+        for f in idx.files[rel]:
+            if f.kind != "define-fn" or not f.name or not f.body.lstrip().startswith("(lambda"):
+                continue
+            if not (min_body <= len(f.body) <= max_body) or any(t in f.body for t in ILLEGAL_HINTS) or ABS.search(f.body):
+                continue
+            raw.append((rel, f))
+    random.Random(seed).shuffle(raw)
+    stats = {"repo": repo.name, "head": sha, "defines": len(raw), "tried": 0, "closed": 0, "drop": {}}
+    out: list[dict] = []
+    lock = threading.Lock()
+
+    def drop(why: str) -> None:
+        with lock:
+            stats["drop"][why] = stats["drop"].get(why, 0) + 1
+
+    def one(item):
+        rel, f = item
+        with lock:
+            if len(out) >= cap:
+                return
+            stats["tried"] += 1
+        ctx = build_context(idx, rel, f.name, f.text, f.body, f.body, {}, MAX_FOCUS_CHARS)
+        if ctx.text is None:
+            return drop(ctx.reason)
+        if ABS.search(ctx.text):
+            return drop("abs-path")
+        text = dedupe_context(ctx.text)
+        c = _cand_from_context(text, f.name, f.body, f"{repo.name}@{sha[:12]}:{rel}", repo.name)
+        if c is None:
+            return drop("no-callee")
+        ok, _why = load_check(text)
+        if not ok:
+            return drop("context-load")
+        try:
+            if not apply_succeeded(apply_patch(text, patch_for(f.name, f.body, "identity"), timeout=60)):
+                return drop("identity-reject")
+        except PatchError:
+            return drop("identity-error")
+        with lock:
+            if len(out) < cap:
+                out.append(c)
+                stats["closed"] += 1
+
+    # Chunked so the cap stops work early.
+    for i in range(0, len(raw), max(workers * 4, 1)):
+        if len(out) >= cap:
+            break
+        with ThreadPoolExecutor(workers) as ex:
+            list(ex.map(one, raw[i : i + workers * 4]))
+    return out[:cap], stats
+
+
+# Differential behavior gate for fill: same context, original vs filled define, same probe calls.
+PROFILES = {
+    "int": ["0", "1", "2", "-1", "5", "10", "97"],
+    "str": ['""', '"a"', '"ab c"', '"hello"', '"x1"'],
+    "list": ["(list)", "(list 1 2 3)", "(list \"a\" \"b\")", "(list 0)"],
+    "mixed": ["0", "3", '"a"', '""', "(list 1 2)", "(list)", "#t", "#f"],
+}
+PROBES_PER_PROFILE = 6
+
+
+def probe_program(source: str, name: str, nparams: int, profile: str, watch: list[str]) -> str:
+    vals = PROFILES[profile]
+    rng = random.Random(f"{name}:{profile}")
+    calls = []
+    seen = set()
+    for k in range(PROBES_PER_PROFILE):
+        args = tuple(vals[(k + j) % len(vals)] if profile != "mixed" else rng.choice(vals) for j in range(nparams))
+        if args in seen:
+            continue
+        seen.add(args)
+        calls.append("(" + " ".join((name,) + args) + ")")
+    lines = [source.strip()]
+    for i, call in enumerate(calls):
+        lines.append(f'(display "@@{i} ") (display (try {call} (catch (e) "ERR"))) (newline)')
+        for w in watch:
+            lines.append(f'(display "@@{i} {w}=") (display {w}) (newline)')
+    return "\n".join(lines) + "\n"
+
+
+def _probe_out(src: str) -> list[str] | None:
+    try:
+        out = run_aura_program(src, timeout=20)
+    except PatchError:
+        return None
+    lines = [l for l in out.splitlines() if l.startswith("@@")]
+    return lines or None
+
+
+def behavior_gate(c: dict, filled_body: str, fill_src: str) -> dict:
+    """pass: >=1 profile ran on the original with a non-ERR result and every profile that ran
+    printed identical lines for both; fail: any difference; no-signal: nothing comparable."""
+    params = lambda_params(c["body"])
+    if re.search(r"\(lambda\s+[^\s(]", c["body"]) or "." in lambda_param_form(c["body"]).split():
+        return {"status": "no-signal", "why": "variadic"}
+    nparams = len(lambda_param_form(c["body"]).strip("()").split())
+    var_names = {f.name for f in top_forms(c["source"]) if f.kind == "define-var"}
+    watch = sorted(var_names & code_symbols(c["body"]))[:6]
+    filled_src = fill_src.replace(
+        f"(define {c['name']} (lambda {lambda_param_form(c['body'])} #f))", f"(define {c['name']} {filled_body})", 1
+    )
+    runs = []
+    for prof in PROFILES if nparams else ["int"]:
+        a = _probe_out(probe_program(c["source"], c["name"], nparams, prof, watch))
+        if a is None:
+            runs.append({"profile": prof, "status": "orig-failed"})
+            continue
+        b = _probe_out(probe_program(filled_src, c["name"], nparams, prof, watch))
+        useful = any(not l.endswith(" ERR") for l in a if "=" not in l.split(" ", 1)[0])
+        if b != a:
+            diff = next((i for i, (x, y) in enumerate(zip(a, b or [])) if x != y), None)
+            runs.append({"profile": prof, "status": "diff", "first": (a[diff] if diff is not None else "")[:120],
+                         "got": ((b or [""])[diff] if diff is not None and b else "")[:120]})
+        else:
+            runs.append({"profile": prof, "status": "same" if useful else "same-all-err"})
+    st = [r["status"] for r in runs]
+    status = "fail" if "diff" in st else "pass" if "same" in st else "no-signal"
+    return {"status": status, "runs": runs, "params": nparams, "watch": watch}
 
 
 def leaks_name(text: str, name: str) -> bool:
@@ -182,8 +331,24 @@ def judge(task: str, c: dict, patch: list[dict], src: str, timeout: int) -> dict
         return v
     if task == "fill":
         v["exact"] = bodies_equivalent(last["body"], c["body"])
+        if last["name"] != c["name"]:
+            v["reason"] = "wrong-target"
+            return v
+        bg = {"status": "pass", "why": "exact"} if v["exact"] else behavior_gate(c, last["body"], src)
+        v["behavior"] = bg
+        if bg["status"] == "fail":
+            v["reason"] = "behavior-diff"
+            return v
     v["pass"] = True
     return v
+
+
+def _test_of(task: str, v: dict) -> dict:
+    """locate/deps keep the body, so the host gate is the whole check; fill carries the behavior gate."""
+    if task != "fill":
+        return {"status": "pass", "runs": [], "kind": "body-unchanged"}
+    bg = v.get("behavior") or {}
+    return {"status": bg.get("status", "none"), "runs": bg.get("runs", []), "kind": "differential"}
 
 
 def run_one(cfg: dict, c: dict, tasks: tuple[str, ...], timeout: int, usage: dict) -> list[dict]:
@@ -211,6 +376,7 @@ def run_one(cfg: dict, c: dict, tasks: tuple[str, ...], timeout: int, usage: dic
             "id": rid,
             "task": task,
             "name": c["name"],
+            "repo": c.get("repo"),
             "latency": round(lat + (dt if task == tasks[0] else 0), 2),
             "verify": v,
             "raw": text[-4000:],
@@ -219,9 +385,9 @@ def run_one(cfg: dict, c: dict, tasks: tuple[str, ...], timeout: int, usage: dic
                 "input": {"source": src, "intent": intent},
                 "target": patch,
                 "verify": {"apply_ok": v.get("apply_ok", False), "label": "KEEP" if v.get("pass") else "DROP",
-                           "test": {"status": "none", "runs": []}, "synth": v},
+                           "test": _test_of(task, v), "synth": v},
                 "meta": {"synth_task": task, "name": c["name"], "gold_callees": c["callees"], "origin": c["origin"],
-                         "teacher": cfg["model"], "gold_body": c["body"]},
+                         "teacher": cfg["model"], "gold_body": c["body"], "repo": c.get("repo")},
             },
         })
     return out
@@ -229,7 +395,9 @@ def run_one(cfg: dict, c: dict, tasks: tuple[str, ...], timeout: int, usage: dic
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("pool", nargs="+", type=Path, help="pipeline rows (train/eval jsonl) whose contexts closed on the host")
+    p.add_argument("pool", nargs="*", type=Path, help="pipeline rows (train/eval jsonl) whose contexts closed on the host")
+    p.add_argument("--repo", action="append", type=Path, default=[], help="Aura repo checkout: build closed contexts at HEAD")
+    p.add_argument("--per-repo-cap", type=int, default=60)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--n", type=int, default=20, help="defines to sample")
     p.add_argument("--seed", type=int, default=0)
@@ -246,9 +414,18 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     cfg["model"] = args.model
     rows = [json.loads(l) for path in args.pool for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
-    cands = candidates(rows, args.min_body, args.max_body)
-    random.Random(args.seed).shuffle(cands)
-    cands = cands[: args.n]
+    pool = candidates(rows, args.min_body, args.max_body)
+    pool_stats = []
+    t_pool = time.time()
+    for repo in args.repo:
+        got, st = repo_candidates(repo, args.per_repo_cap, args.seed, args.min_body, args.max_body, args.workers)
+        print("synth: pool " + json.dumps(st), flush=True)
+        pool += got
+        pool_stats.append(st)
+    pool_sec = round(time.time() - t_pool, 1)
+    n_pool = len(pool)
+    random.Random(args.seed).shuffle(pool)
+    cands = pool[: args.n]
     tasks = tuple(t for t in args.tasks.split(",") if t in TASKS)
     usage: dict = {}
     t0 = time.time()
@@ -262,7 +439,7 @@ def main(argv: list[str] | None = None) -> int:
         for r in results:
             if r["verify"].get("pass"):
                 f.write(json.dumps(r["sample"], ensure_ascii=False) + "\n")
-    summary = {"model": cfg["model"], "pool_candidates": len(candidates(rows, args.min_body, args.max_body)),
+    summary = {"model": cfg["model"], "pool_candidates": n_pool, "pool_sec": pool_sec, "pool_repos": pool_stats,
                "defines": len(cands), "wall_sec": round(time.time() - t0, 1), "usage": usage, "tasks": {}}
     for t in tasks:
         rs = [r for r in results if r["task"] == t]
@@ -280,6 +457,21 @@ def main(argv: list[str] | None = None) -> int:
             "fail_reasons": reasons,
             "latency_p50": lat[len(lat) // 2] if lat else None,
         }
+    for t in tasks:
+        summary["tasks"][t]["by_repo"] = {}
+        for r in results:
+            if r["task"] != t:
+                continue
+            b = summary["tasks"][t]["by_repo"].setdefault(str(r.get("repo")), {"n": 0, "pass": 0})
+            b["n"] += 1
+            b["pass"] += 1 if r["verify"].get("pass") else 0
+        if t == "fill":
+            beh: dict[str, int] = {}
+            for r in results:
+                if r["task"] == "fill" and "behavior" in r["verify"]:
+                    k = r["verify"]["behavior"]["status"]
+                    beh[k] = beh.get(k, 0) + 1
+            summary["tasks"][t]["behavior"] = beh
     (args.out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(summary, indent=2))
     return 0

@@ -1,0 +1,11 @@
+{
+  "purpose": "host for scripts/synth.py batches (synthetic tasks); not used by pipeline collect",
+  "bin_sha256": "a3099864179063748a6c8a15204f5d18d51d9acc7842027ee19fd09f312c9380",
+  "lib_tree_sha256": "847ce850aa9a41f87f3554a6677900ee87dfdf323bfaf9126787f96e108b7caf",
+  "box_path": "/workspace/edsl-host/a3099864179063748a6c8a15204f5d18d51d9acc7842027ee19fd09f312c9380/aura",
+  "box_lib": "/workspace/edsl-host/a3099864179063748a6c8a15204f5d18d51d9acc7842027ee19fd09f312c9380/lib",
+  "origin": "copy of /workspace/rv/bin-new/build-rel/aura (built 2026-10-27 00:14 +08, Aura #4682 work line); lib copied from /workspace/aura-pw/lib at 52dd925fd",
+  "aura_sha": "unknown: binary built from a local work tree, no embedded commit",
+  "image": "ghcr.io/cybrid-systems/dev:v1.0.9",
+  "selftest": "accepts-plain-rebind, rejects-unbound-call, rejects-arity-mismatch: 3/3 OK"
+}

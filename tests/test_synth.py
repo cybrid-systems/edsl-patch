@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from synth import candidates, judge, leaks_name, parse_array, task_prompt
+from synth import candidates, judge, leaks_name, parse_array, probe_program, task_prompt
 
 SRC = (
     "(define *k* 3)\n"
@@ -42,6 +42,11 @@ class Synth(unittest.TestCase):
         self.assertFalse(v["schema_ok"])
         v = judge("locate", c, q + [dict(reb, body="(lambda (x) (g x))")], SRC, 5)
         self.assertEqual(v["reason"], "body-changed")
+
+    def test_probe_program_calls_and_watch(self):
+        prog = probe_program("(define (f a b) a)", "f", 2, "int", ["*k*"])
+        self.assertIn('(display (try (f 0 1) (catch (e) "ERR")))', prog)
+        self.assertIn('(display "@@0 *k*=") (display *k*)', prog)
 
     def test_parse_and_leak(self):
         self.assertEqual(parse_array('```json\n[{"a":1}]\n```'), [{"a": 1}])
