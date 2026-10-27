@@ -77,3 +77,20 @@ Commercial verticals add a world observation and optional probes. `expected_sour
 - Strand / Unify traces: a round that rebound a name to a **better** body may become a positive sequence. Poison / fitness-drop rounds are not synthesis positives.
 
 `label` on old Strand control traces (`schema/trace.md`) is **not** this `target`. Convert or keep under `examples/legacy-control/`.
+
+## Exported SFT row extras (`scripts/export_sft.py`)
+
+Each `sft.jsonl` row is `{"messages": [system, user, assistant], "difficulty", "test_status", "weight"}`.
+Trainers that do not know the extras ignore them; weighted trainers multiply the token loss by `weight`.
+
+- The user prompt drops later whitespace-identical repeats of a top-level `define` (the context
+  builder can emit a helper twice) and strips markdown ticks / `**` from the intent. The
+  assistant turn is always one JSON patch array (no `<think>`, no fences, no split turns).
+- `difficulty`: `query_steps`, `defuse_span` (other context defines that the target calls or that
+  call the target), `target_given` (intent names the target, or it is the only define),
+  `trivial` (target given and nothing left to explore: span 0, or every query is on the target
+  itself), `tier` = trivial | easy (span ≤ 2) | medium (≤ 6) | hard.
+- `test_status`: pipeline `verify.test.status` (`pass` | `none` | `no-signal`), `n/a` for rows
+  that never had a test stage.
+- `weight`: 1.0, ×0.5 for an untested KEEP synthesis (`none` / `no-signal`), ×0.5 for a trivial
+  replace. Refuse rows are not down-weighted.

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -13,10 +14,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from edsl_patch import SYSTEM_CONTRACT, PatchError, validate_patch
-from parse_aura import MAX_FOCUS_CHARS, extract_defines
+from parse_aura import MAX_FOCUS_CHARS, code_symbols, extract_defines, iter_top_forms
 
 
 DEFAULT_SRC = (
@@ -42,10 +43,10 @@ def to_sft(sample: dict) -> dict:
         raise PatchError("missing input.source")
     observe = sample.get("input", {}).get("observe")
     target = validate_patch(sample.get("target"), observe=observe if isinstance(observe, dict) else None)
-    user = source.strip()
-    intent = (sample.get("input") or {}).get("intent")
+    user = dedupe_context(source).strip()
+    intent = clean_intent((sample.get("input") or {}).get("intent"))
     if intent:
-        user += "\nintent: " + str(intent)
+        user += "\nintent: " + intent
     if observe:
         user += "\nobserve: " + json.dumps(observe, ensure_ascii=False)
     return {
@@ -55,6 +56,116 @@ def to_sft(sample: dict) -> dict:
             {"role": "assistant", "content": json.dumps(target, ensure_ascii=False)},
         ]
     }
+
+
+_DEFINE_NAME = re.compile(r"\(define\s+\(?([^\s()]+)")
+
+
+def dedupe_context(source: str) -> str:
+    """Drop later byte-identical (modulo whitespace) repeats of a top-level form.
+
+    The pipeline context builder can emit the same helper define twice (once as a
+    dependency, once as a user's dependency). Repeats carry no signal and teach the
+    model that duplicated defines are normal. Differing redefinitions are kept.
+    """
+    seen: set[str] = set()
+    out: list[str] = []
+    pos = 0
+    for form in iter_top_forms(source):
+        at = source.find(form, pos)
+        if at < 0:
+            return source
+        key = " ".join(form.split())
+        if key in seen and _DEFINE_NAME.match(form):
+            out.append(source[pos:at].rstrip(" \t"))
+            pos = at + len(form)
+            if source.startswith("\n", pos):
+                pos += 1
+            continue
+        seen.add(key)
+        out.append(source[pos : at + len(form)])
+        pos = at + len(form)
+    out.append(source[pos:])
+    return "".join(out)
+
+
+def clean_intent(intent) -> str:
+    """Intent is plain prose: drop markdown code ticks / emphasis and collapse whitespace."""
+    if not intent:
+        return ""
+    text = str(intent).replace("**", "").replace("`", "")
+    return " ".join(text.split())
+
+
+UNTESTED_KEEP_WEIGHT = 0.5
+TRIVIAL_WEIGHT = 0.5
+
+
+def difficulty(sample: dict) -> dict:
+    """Per-sample difficulty labels (Hybrid-Gym §4.3: harder / longer samples transfer better).
+
+    query_steps   number of query ops before the completion
+    defuse_span   other defines in the prompt context linked to the target (callees + callers)
+    target_given  the intent names the target define, or the context holds only that define
+    trivial       target_given and nothing to explore (defuse_span == 0, or every query is on
+                  the target itself): a plain 'trivial-replace', down-weighted
+    tier          trivial | easy | medium | hard
+    """
+    target = sample.get("target") or []
+    last = target[-1] if target else {}
+    name = str(last.get("name") or "")
+    src = dedupe_context((sample.get("input") or {}).get("source") or "")
+    intent = clean_intent((sample.get("input") or {}).get("intent"))
+    q = sum(1 for st in target if st.get("kind") == "query")
+    forms = {}
+    for form in iter_top_forms(src):
+        m = _DEFINE_NAME.match(form)
+        if m:
+            forms[m.group(1)] = form
+    span = 0
+    if name and name in forms:
+        body_syms = code_symbols(forms[name])
+        if last.get("body"):
+            body_syms |= code_symbols(str(last["body"]))
+        for other, form in forms.items():
+            if other == name:
+                continue
+            if other in body_syms or name in code_symbols(form):
+                span += 1
+    given = bool(name) and (re.search(r"(?<![\w:*!?<>=/+-])" + re.escape(name) + r"(?![\w:*!?<>=/+-])", intent) is not None or len(forms) <= 1)
+    # Queries that only ever touch the target add no exploration once the target is named.
+    self_only = all(st.get("name") in (None, name) for st in target if st.get("kind") == "query")
+    trivial = given and (span == 0 or self_only)
+    if trivial:
+        tier = "trivial"
+    elif span <= 2:
+        tier = "easy"
+    elif span <= 6:
+        tier = "medium"
+    else:
+        tier = "hard"
+    return {"query_steps": q, "defuse_span": span, "target_given": given, "trivial": trivial, "tier": tier}
+
+
+def test_status(sample: dict) -> str:
+    """'pass' | 'none' | 'no-signal' | 'fail' for pipeline rows; 'n/a' when the row never had a test stage."""
+    test = (sample.get("verify") or {}).get("test")
+    if not isinstance(test, dict):
+        return "n/a"
+    return str(test.get("status") or "none")
+
+
+def sample_weight(sample: dict, diff: dict | None = None) -> float:
+    """Loss weight: untested KEEP and trivial replaces count half (multiplicative)."""
+    diff = diff or difficulty(sample)
+    w = 1.0
+    target = sample.get("target") or []
+    last = target[-1] if target else {}
+    if last.get("kind") == "synthesis" and test_status(sample) in ("none", "no-signal"):
+        w *= UNTESTED_KEEP_WEIGHT
+    if last.get("kind") == "synthesis" and diff.get("trivial"):
+        w *= TRIVIAL_WEIGHT
+    return w
 
 
 # Whole-file business sources exceed this. Focused define excerpts stay under it.
@@ -242,7 +353,16 @@ def main(argv: list[str] | None = None) -> int:
                 skipped += 1
                 continue
             try:
-                rows.append(to_sft(sample) | {"_bucket": bucket_of(path, sample)})
+                diff = difficulty(sample)
+                rows.append(
+                    to_sft(sample)
+                    | {
+                        "difficulty": diff,
+                        "test_status": test_status(sample),
+                        "weight": sample_weight(sample, diff),
+                        "_bucket": bucket_of(path, sample),
+                    }
+                )
                 seen_pairs.add(dkey)
                 dyn_counts[ck] += 1
             except PatchError:
@@ -344,6 +464,9 @@ def main(argv: list[str] | None = None) -> int:
                     "per_src": {_rel(Path(k)): v for k, v in per_src.items()},
                     "source_sha256": {_rel(s): _sha256(s) for s in srcs if s.is_file()},
                     "buckets": dict(buckets),
+                    "difficulty_tiers": dict(Counter(str((r.get("difficulty") or {}).get("tier")) for r in rows)),
+                    "test_status": dict(Counter(str(r.get("test_status")) for r in rows)),
+                    "weight_sum": round(sum(float(r.get("weight", 1.0)) for r in rows), 3),
                 },
                 indent=2,
             )
