@@ -1,0 +1,47 @@
+{
+  "model": "MiniMax-M3.1-Flash",
+  "pool_candidates": 396,
+  "defines": 20,
+  "wall_sec": 937.0,
+  "usage": {
+    "prompt_tokens": 148223,
+    "completion_tokens": 447184,
+    "calls": 92
+  },
+  "tasks": {
+    "locate": {
+      "n": 20,
+      "schema_ok": 18,
+      "pass": 17,
+      "exact": 0,
+      "fail_reasons": {
+        "schema": 2,
+        "body-changed": 1
+      },
+      "latency_p50": 29.94
+    },
+    "deps": {
+      "n": 20,
+      "schema_ok": 18,
+      "pass": 17,
+      "exact": 0,
+      "fail_reasons": {
+        "schema": 2,
+        "body-changed": 1
+      },
+      "latency_p50": 18.42
+    },
+    "fill": {
+      "n": 20,
+      "schema_ok": 16,
+      "pass": 15,
+      "exact": 2,
+      "fail_reasons": {
+        "not-rebind": 1,
+        "parse": 3,
+        "schema": 1
+      },
+      "latency_p50": 74.62
+    }
+  }
+}
