@@ -174,6 +174,17 @@ class ContextTest(unittest.TestCase):
         forms = ctxm.child_helper_forms(cidx, added, "(lambda (z) (m:new (m:step z)))", "m:user")
         self.assertEqual(list(forms), ["m:new"])
 
+    def test_child_helper_var_emitted_once(self):
+        c = self.commits[0]
+        idx = ctxm.RepoIndex.build(self.repo, c.parent)
+        hv = unm.classify("(define *new-k* 7)")
+        body = "(lambda (x) (+ x *new-k*))"
+        ctx = ctxm.build_context(
+            idx, "src/main.aura", "m:step", "(define (m:step x) (+ x 1))", "(lambda (x) (+ x 1))", body,
+            child_helpers={"*new-k*": hv},
+        )
+        self.assertEqual(ctx.text.count("(define *new-k* 7)"), 1)
+
 
 class IntentTest(unittest.TestCase):
     def test_violations(self):

@@ -207,7 +207,8 @@ def build_context(
             need(form.text, form.params, depth + 1)
 
     def var_order() -> list[str]:
-        vars_ = [s for s, c in chosen.items() if c["form"].kind == "define-var"]
+        # Child helpers (define-fn or define-var) are emitted once, via helper_forms.
+        vars_ = [s for s, c in chosen.items() if c["form"].kind == "define-var" and not c.get("helper")]
         seen: set[str] = set()
         out: list[str] = []
 
@@ -218,7 +219,7 @@ def build_context(
             c = chosen[s]
             if c["full"]:
                 for d in sorted(free_symbols(c["form"].text)):
-                    if d in chosen and chosen[d]["form"].kind == "define-var" and d != s:
+                    if d in chosen and chosen[d]["form"].kind == "define-var" and not chosen[d].get("helper") and d != s:
                         visit(d)
             out.append(s)
 
